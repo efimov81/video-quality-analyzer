@@ -15,6 +15,7 @@ cp -n .env.example .env
 pnpm install
 pnpm infra:up
 pnpm infra:ps
+pnpm db:migrate
 ```
 
 Запустите сервер и интерфейс в отдельных терминалах:
@@ -36,11 +37,23 @@ pnpm infra:down
 
 Не запускайте `docker compose down -v`: эта команда удалит volume PostgreSQL.
 
-## Состояние приложений
+## Загрузка видео
 
-В backend настроен минимальный bootstrap NestJS без контроллеров и API-маршрутов.
-Frontend — минимальное standalone Angular-приложение с Tailwind CSS 4. Схема БД,
-миграции, worker, API и прикладные функции пока не входят в базовый каркас.
+Добавьте ссылку на видео в Angular UI. Backend создаст запись в `jobs` со статусом
+`QUEUED`, а фоновый worker последовательно скачает ролик через установленный
+`yt-dlp`. Статусы загрузки: `QUEUED`, `DOWNLOADING`, `DOWNLOADED`, `FAILED`.
+Список обновляется через REST API раз в 5 секунд.
+
+Установите `yt-dlp` и убедитесь, что команда доступна через `PATH`. Путь можно
+задать переменной `YTDLP_PATH`. Видео сохраняются в `./videos`; каталог можно
+переопределить переменной `VIDEO_STORAGE_DIR`. Файлы не раздаются публично.
+
+При старте worker возвращает прерванные задания скачивания в очередь. Схема базы
+управляется миграциями Drizzle:
+`pnpm db:generate` генерирует миграцию из схемы, `pnpm db:migrate` применяет
+неприменённые миграции. Перед первым запуском backend выполните `pnpm db:migrate`.
+API: `POST /api/jobs`, `GET /api/jobs`,
+`GET /api/jobs/:id`; Swagger доступен на `/api/docs`.
 
 ## Сборка и проверка типов
 

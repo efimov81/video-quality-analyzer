@@ -1,6 +1,7 @@
 import { bootstrapApplication } from '@angular/platform-browser';
+import { provideHttpClient } from '@angular/common/http';
 import { AppComponent } from './app/app.component';
 
-bootstrapApplication(AppComponent).catch((error: unknown) => {
+bootstrapApplication(AppComponent, { providers: [provideHttpClient()] }).catch((error: unknown) => {
   console.error('Frontend bootstrap failed.', error);
 });

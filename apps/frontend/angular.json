@@ -25,6 +25,7 @@
         },
         "serve": {
           "builder": "@angular/build:dev-server",
+          "options": { "proxyConfig": "proxy.conf.json" },
           "configurations": {
             "production": { "buildTarget": "video-quality-analyzer:build:production" },
             "development": { "buildTarget": "video-quality-analyzer:build:development" }
