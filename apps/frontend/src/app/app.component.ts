@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, signal } from '@
 import { DatePipe } from '@angular/common';
 import { ReactiveFormsModule, FormControl, FormGroup, Validators } from '@angular/forms';
 import { JobsApiService } from './core/services/jobs-api.service';
-import { Job } from './api/generated/models/job';
+import { JobResponseDto } from './api/generated/models/job-response-dto';
 
 @Component({
   selector: 'vqa-root',
@@ -12,7 +12,7 @@ import { Job } from './api/generated/models/job';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AppComponent implements OnInit, OnDestroy {
-  readonly jobs = signal<Job[]>([]);
+  readonly jobs = signal<JobResponseDto[]>([]);
   readonly submitting = signal(false);
   readonly loadError = signal('');
   readonly submitError = signal('');
@@ -49,7 +49,7 @@ export class AppComponent implements OnInit, OnDestroy {
     });
   }
 
-  statusLabel(status: Job['status']): string {
+  statusLabel(status: JobResponseDto['status']): string {
     return ({ QUEUED: 'In Queue', DOWNLOADING: 'Downloading', DOWNLOADED: 'Downloaded', FAILED: 'Failed' })[status];
   }
 

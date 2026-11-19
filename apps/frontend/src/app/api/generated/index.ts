@@ -7,10 +7,19 @@ export { RequestBuilder } from './request-builder';
 export type { StrictHttpResponse } from './strict-http-response';
 
 
+export type { AnalysisReportDto } from './models/analysis-report-dto';
+export type { AnalysisRunResponseDto } from './models/analysis-run-response-dto';
+export type { AnalysisSummaryDto } from './models/analysis-summary-dto';
+export type { CreateAnalysisRunDto } from './models/create-analysis-run-dto';
 export type { CreateJobDto } from './models/create-job-dto';
-export type { Job } from './models/job';
+export type { JobResponseDto } from './models/job-response-dto';
+export type { ProfileResponseDto } from './models/profile-response-dto';
+export type { ProfileVersionResponseDto } from './models/profile-version-response-dto';
+export type { SaveProfileDto } from './models/save-profile-dto';
 export { BaseService } from './base-service';
 export { JobsService } from './services/jobs.service';
+export { AnalysisService } from './services/analysis.service';
+export { ProfilesService } from './services/profiles.service';
 
 export type { JobsControllerList$Params as JobsControllerList$Params } from './fn/jobs/jobs-controller-list';
 export { jobsControllerList as jobsControllerList } from './fn/jobs/jobs-controller-list';
@@ -18,3 +27,21 @@ export type { JobsControllerCreate$Params as JobsControllerCreate$Params } from 
 export { jobsControllerCreate as jobsControllerCreate } from './fn/jobs/jobs-controller-create';
 export type { JobsControllerGet$Params as JobsControllerGet$Params } from './fn/jobs/jobs-controller-get';
 export { jobsControllerGet as jobsControllerGet } from './fn/jobs/jobs-controller-get';
+export type { AnalysisControllerList$Params as AnalysisControllerList$Params } from './fn/analysis/analysis-controller-list';
+export { analysisControllerList as analysisControllerList } from './fn/analysis/analysis-controller-list';
+export type { AnalysisControllerCreate$Params as AnalysisControllerCreate$Params } from './fn/analysis/analysis-controller-create';
+export { analysisControllerCreate as analysisControllerCreate } from './fn/analysis/analysis-controller-create';
+export type { AnalysisControllerReport$Params as AnalysisControllerReport$Params } from './fn/analysis/analysis-controller-report';
+export { analysisControllerReport as analysisControllerReport } from './fn/analysis/analysis-controller-report';
+export type { AnalysisControllerGet$Params as AnalysisControllerGet$Params } from './fn/analysis/analysis-controller-get';
+export { analysisControllerGet as analysisControllerGet } from './fn/analysis/analysis-controller-get';
+export type { ProfilesControllerList$Params as ProfilesControllerList$Params } from './fn/profiles/profiles-controller-list';
+export { profilesControllerList as profilesControllerList } from './fn/profiles/profiles-controller-list';
+export type { ProfilesControllerCreate$Params as ProfilesControllerCreate$Params } from './fn/profiles/profiles-controller-create';
+export { profilesControllerCreate as profilesControllerCreate } from './fn/profiles/profiles-controller-create';
+export type { ProfilesControllerVersions$Params as ProfilesControllerVersions$Params } from './fn/profiles/profiles-controller-versions';
+export { profilesControllerVersions as profilesControllerVersions } from './fn/profiles/profiles-controller-versions';
+export type { ProfilesControllerGet$Params as ProfilesControllerGet$Params } from './fn/profiles/profiles-controller-get';
+export { profilesControllerGet as profilesControllerGet } from './fn/profiles/profiles-controller-get';
+export type { ProfilesControllerUpdate$Params as ProfilesControllerUpdate$Params } from './fn/profiles/profiles-controller-update';
+export { profilesControllerUpdate as profilesControllerUpdate } from './fn/profiles/profiles-controller-update';

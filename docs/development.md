@@ -48,12 +48,47 @@ pnpm infra:down
 задать переменной `YTDLP_PATH`. Видео сохраняются в `./videos`; каталог можно
 переопределить переменной `VIDEO_STORAGE_DIR`. Файлы не раздаются публично.
 
+Для BullMQ требуется Redis. `pnpm infra:up` запускает PostgreSQL и Redis; Redis
+использует отдельный volume `redis_data`. FFmpeg и FFprobe должны быть доступны в
+`PATH` либо заданы через `FFMPEG_PATH` и `FFPROBE_PATH`.
+
 При старте worker возвращает прерванные задания скачивания в очередь. Схема базы
 управляется миграциями Drizzle:
 `pnpm db:generate` генерирует миграцию из схемы, `pnpm db:migrate` применяет
 неприменённые миграции. Перед первым запуском backend выполните `pnpm db:migrate`.
 API: `POST /api/jobs`, `GET /api/jobs`,
 `GET /api/jobs/:id`; Swagger доступен на `/api/docs`.
+
+### Технический анализ
+
+Список профилей доступен по `GET /api/profiles`; `POST /api/profiles` создаёт
+профиль с JSONB-критериями, а `PUT /api/profiles/:id` создаёт новую версию.
+История версий доступна по `GET /api/profiles/:id/versions`.
+
+Создайте анализ скачанного видео вызовом `POST /api/analysis-runs` с
+`{"videoId":"<job-id>","profileId":"<profile-id>"}`. Результат сразу вернёт
+ID и статус `QUEUED`; worker BullMQ выполняет анализ в фоне. Статус доступен через
+`GET /api/analysis-runs/:id`, полный отчёт с проверками и таймкодами — через
+`GET /api/analysis-runs/:id/report`. Повторный запрос для уже активной пары видео
+и профиля возвращает существующий запуск.
+
+Реализованы FFprobe-метаданные, разрешение, aspect ratio, длительность и битрейт,
+наличие аудиопотока, тишина и нулевой
+сигнал, EBU R128 loudness/true peak, PCM full-scale/clipping признаки, FFmpeg
+scene score, чёрные экраны, freeze, яркость и blur metric. Проверки запускаются
+независимо; ошибка одной сохраняется как `ERROR` и не блокирует остальные.
+
+SNR, классификация мешающего шума и VAD речи обозначены как `WARNING` и не
+имитируются: без валидированной VAD-модели эти выводы недостоверны. Blur metric
+показывается без автоматического решения, пока профиль не задаст откалиброванный
+порог. Upscaling-детектор оставлен экспериментально неподдерживаемым; разрешение
+или низкая резкость сами по себе не объявляются доказательством upscaling.
+
+Для теста на локальном реальном файле задайте `VIDEO_ANALYSIS_TEST_FILE`:
+
+```bash
+VIDEO_ANALYSIS_TEST_FILE=videos/<downloaded-file>.webm pnpm test
+```
 
 ## Сборка и проверка типов
 

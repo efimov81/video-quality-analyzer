@@ -7,13 +7,13 @@ import { filter, map } from 'rxjs/operators';
 import { StrictHttpResponse } from '../../strict-http-response';
 import { RequestBuilder } from '../../request-builder';
 
-import { Job } from '../../models/job';
+import { JobResponseDto } from '../../models/job-response-dto';
 
 export interface JobsControllerGet$Params {
   id: string;
 }
 
-export function jobsControllerGet(http: HttpClient, rootUrl: string, params: JobsControllerGet$Params, context?: HttpContext): Observable<StrictHttpResponse<Job>> {
+export function jobsControllerGet(http: HttpClient, rootUrl: string, params: JobsControllerGet$Params, context?: HttpContext): Observable<StrictHttpResponse<JobResponseDto>> {
   const rb = new RequestBuilder(rootUrl, jobsControllerGet.PATH, 'get');
   if (params) {
     rb.path('id', params.id, {});
@@ -24,7 +24,7 @@ export function jobsControllerGet(http: HttpClient, rootUrl: string, params: Job
   ).pipe(
     filter((r: any): r is HttpResponse<any> => r instanceof HttpResponse),
     map((r: HttpResponse<any>) => {
-      return r as StrictHttpResponse<Job>;
+      return r as StrictHttpResponse<JobResponseDto>;
     })
   );
 }

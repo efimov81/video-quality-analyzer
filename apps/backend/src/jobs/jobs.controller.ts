@@ -1,10 +1,14 @@
 import { BadRequestException, Body, Controller, Get, HttpCode, HttpStatus, NotFoundException, Param, Post } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOkResponse, ApiProperty, ApiTags } from '@nestjs/swagger';
+import { IsString, IsUrl, MaxLength } from 'class-validator';
 import { Job } from '../database/schema';
 import { JobsService } from './jobs.service';
 
 class CreateJobDto {
   @ApiProperty({ example: 'https://example.com/video' })
+  @IsString()
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
+  @MaxLength(2048)
   sourceUrl!: string;
 }
 
@@ -16,9 +20,9 @@ class JobResponseDto {
   @ApiProperty({ type: String, nullable: true }) localPath!: string | null;
   @ApiProperty({ enum: ['QUEUED', 'DOWNLOADING', 'DOWNLOADED', 'FAILED'] }) status!: Job['status'];
   @ApiProperty({ type: String, nullable: true }) error!: string | null;
-  @ApiProperty({ format: 'date-time' }) createdAt!: Date;
-  @ApiProperty({ format: 'date-time', nullable: true }) startedAt!: Date | null;
-  @ApiProperty({ format: 'date-time', nullable: true }) completedAt!: Date | null;
+  @ApiProperty({ type: String, format: 'date-time' }) createdAt!: string;
+  @ApiProperty({ type: String, format: 'date-time', nullable: true }) startedAt!: string | null;
+  @ApiProperty({ type: String, format: 'date-time', nullable: true }) completedAt!: string | null;
 }
 
 @ApiTags('jobs')

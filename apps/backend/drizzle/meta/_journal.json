@@ -8,6 +8,34 @@
       "when": 1795089733333,
       "tag": "0000_purple_miss_america",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1795097683846,
+      "tag": "0001_neat_warstar",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795098444345,
+      "tag": "0002_default-scene-cut-tuning",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1795099166981,
+      "tag": "0003_default-profile-aspect-ratio",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1795099348698,
+      "tag": "0004_backfill-profile-aspect-ratio",
+      "breakpoints": true
     }
   ]
 }

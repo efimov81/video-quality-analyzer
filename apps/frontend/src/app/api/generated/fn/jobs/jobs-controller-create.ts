@@ -8,13 +8,13 @@ import { StrictHttpResponse } from '../../strict-http-response';
 import { RequestBuilder } from '../../request-builder';
 
 import { CreateJobDto } from '../../models/create-job-dto';
-import { Job } from '../../models/job';
+import { JobResponseDto } from '../../models/job-response-dto';
 
 export interface JobsControllerCreate$Params {
       body: CreateJobDto
 }
 
-export function jobsControllerCreate(http: HttpClient, rootUrl: string, params: JobsControllerCreate$Params, context?: HttpContext): Observable<StrictHttpResponse<Job>> {
+export function jobsControllerCreate(http: HttpClient, rootUrl: string, params: JobsControllerCreate$Params, context?: HttpContext): Observable<StrictHttpResponse<JobResponseDto>> {
   const rb = new RequestBuilder(rootUrl, jobsControllerCreate.PATH, 'post');
   if (params) {
     rb.body(params.body, 'application/json');
@@ -25,7 +25,7 @@ export function jobsControllerCreate(http: HttpClient, rootUrl: string, params: 
   ).pipe(
     filter((r: any): r is HttpResponse<any> => r instanceof HttpResponse),
     map((r: HttpResponse<any>) => {
-      return r as StrictHttpResponse<Job>;
+      return r as StrictHttpResponse<JobResponseDto>;
     })
   );
 }

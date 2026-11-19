@@ -10,7 +10,7 @@ import { BaseService } from '../base-service';
 import { ApiConfiguration } from '../api-configuration';
 import { StrictHttpResponse } from '../strict-http-response';
 
-import { Job } from '../models/job';
+import { JobResponseDto } from '../models/job-response-dto';
 import { jobsControllerCreate } from '../fn/jobs/jobs-controller-create';
 import { JobsControllerCreate$Params } from '../fn/jobs/jobs-controller-create';
 import { jobsControllerGet } from '../fn/jobs/jobs-controller-get';
@@ -33,7 +33,7 @@ export class JobsService extends BaseService {
    *
    * This method doesn't expect any request body.
    */
-  jobsControllerList$Response(params?: JobsControllerList$Params, context?: HttpContext): Observable<StrictHttpResponse<Array<Job>>> {
+  jobsControllerList$Response(params?: JobsControllerList$Params, context?: HttpContext): Observable<StrictHttpResponse<Array<JobResponseDto>>> {
     const obs = jobsControllerList(this.http, this.rootUrl, params, context);
     return obs;
   }
@@ -44,10 +44,10 @@ export class JobsService extends BaseService {
    *
    * This method doesn't expect any request body.
    */
-  jobsControllerList(params?: JobsControllerList$Params, context?: HttpContext): Observable<Array<Job>> {
+  jobsControllerList(params?: JobsControllerList$Params, context?: HttpContext): Observable<Array<JobResponseDto>> {
     const resp = this.jobsControllerList$Response(params, context);
     return resp.pipe(
-      map((r: StrictHttpResponse<Array<Job>>): Array<Job> => r.body)
+      map((r: StrictHttpResponse<Array<JobResponseDto>>): Array<JobResponseDto> => r.body)
     );
   }
 
@@ -60,7 +60,7 @@ export class JobsService extends BaseService {
    *
    * This method sends `application/json` and handles request body of type `application/json`.
    */
-  jobsControllerCreate$Response(params: JobsControllerCreate$Params, context?: HttpContext): Observable<StrictHttpResponse<Job>> {
+  jobsControllerCreate$Response(params: JobsControllerCreate$Params, context?: HttpContext): Observable<StrictHttpResponse<JobResponseDto>> {
     const obs = jobsControllerCreate(this.http, this.rootUrl, params, context);
     return obs;
   }
@@ -71,10 +71,10 @@ export class JobsService extends BaseService {
    *
    * This method sends `application/json` and handles request body of type `application/json`.
    */
-  jobsControllerCreate(params: JobsControllerCreate$Params, context?: HttpContext): Observable<Job> {
+  jobsControllerCreate(params: JobsControllerCreate$Params, context?: HttpContext): Observable<JobResponseDto> {
     const resp = this.jobsControllerCreate$Response(params, context);
     return resp.pipe(
-      map((r: StrictHttpResponse<Job>): Job => r.body)
+      map((r: StrictHttpResponse<JobResponseDto>): JobResponseDto => r.body)
     );
   }
 
@@ -87,7 +87,7 @@ export class JobsService extends BaseService {
    *
    * This method doesn't expect any request body.
    */
-  jobsControllerGet$Response(params: JobsControllerGet$Params, context?: HttpContext): Observable<StrictHttpResponse<Job>> {
+  jobsControllerGet$Response(params: JobsControllerGet$Params, context?: HttpContext): Observable<StrictHttpResponse<JobResponseDto>> {
     const obs = jobsControllerGet(this.http, this.rootUrl, params, context);
     return obs;
   }
@@ -98,10 +98,10 @@ export class JobsService extends BaseService {
    *
    * This method doesn't expect any request body.
    */
-  jobsControllerGet(params: JobsControllerGet$Params, context?: HttpContext): Observable<Job> {
+  jobsControllerGet(params: JobsControllerGet$Params, context?: HttpContext): Observable<JobResponseDto> {
     const resp = this.jobsControllerGet$Response(params, context);
     return resp.pipe(
-      map((r: StrictHttpResponse<Job>): Job => r.body)
+      map((r: StrictHttpResponse<JobResponseDto>): JobResponseDto => r.body)
     );
   }
 
