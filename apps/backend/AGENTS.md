@@ -1,0 +1,8 @@
+# Backend workspace instructions
+
+Используй NestJS, TypeScript, REST и Drizzle ORM.
+Соблюдай модульные границы NestJS, но не создавай модуль на каждую мелкую функцию.
+Бизнес-логику держи в application/domain services; контроллеры должны оставаться тонкими.
+Worker-процессы переиспользуют те же application services.
+BullMQ — инфраструктурный адаптер, а не место для бизнес-правил.
+Не раскрывай секреты и не логируй токены.

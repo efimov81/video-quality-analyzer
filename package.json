@@ -1,0 +1,16 @@
+{
+  "name": "video-quality-analyzer",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@10.12.1",
+  "scripts": {
+    "dev:backend": "pnpm --filter @video-quality-analyzer/backend start:dev",
+    "dev:frontend": "pnpm --filter @video-quality-analyzer/frontend start",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "infra:up": "docker compose up -d",
+    "infra:down": "docker compose down",
+    "infra:logs": "docker compose logs -f",
+    "infra:ps": "docker compose ps"
+  }
+}
