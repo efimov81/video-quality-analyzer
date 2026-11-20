@@ -7,6 +7,8 @@ export { RequestBuilder } from './request-builder';
 export type { StrictHttpResponse } from './strict-http-response';
 
 
+export type { AnalysisCheckResultDto } from './models/analysis-check-result-dto';
+export type { AnalysisEvidenceDto } from './models/analysis-evidence-dto';
 export type { AnalysisReportDto } from './models/analysis-report-dto';
 export type { AnalysisRunResponseDto } from './models/analysis-run-response-dto';
 export type { AnalysisSummaryDto } from './models/analysis-summary-dto';
@@ -14,6 +16,7 @@ export type { CreateAnalysisRunDto } from './models/create-analysis-run-dto';
 export type { CreateJobDto } from './models/create-job-dto';
 export type { JobResponseDto } from './models/job-response-dto';
 export type { ProfileResponseDto } from './models/profile-response-dto';
+export type { ProfileSnapshotDto } from './models/profile-snapshot-dto';
 export type { ProfileVersionResponseDto } from './models/profile-version-response-dto';
 export type { SaveProfileDto } from './models/save-profile-dto';
 export { BaseService } from './base-service';

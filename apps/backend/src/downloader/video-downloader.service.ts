@@ -26,14 +26,20 @@ export class VideoDownloaderService {
     await mkdir(directory, { recursive: true });
     const target = join(directory, `${randomUUID()}.%(ext)s`);
     await this.runYtDlp([
-      '--no-playlist', '--no-warnings', '--socket-timeout', '20', '--max-filesize', '2G',
-      '--restrict-filenames', '-o', target, url,
+      '--no-playlist',
+      '--no-warnings', 
+      '--socket-timeout', '20', 
+      '--max-filesize', '2G',
+      '--restrict-filenames', 
+      '-f', 'bestvideo+bestaudio/best',
+      '-o', target, 
+      url,
     ]).catch((error: unknown) => { throw this.downloadError(error); });
 
     const { readdir } = await import('node:fs/promises');
     const prefix = target.slice(0, target.indexOf('.%(ext)s'));
     const file = (await readdir(directory)).find((name) => name.startsWith(prefix.split('/').pop() ?? ''));
-    if (!file) throw new Error('Загрузчик завершился без сохранённого файла.');
+    if (!file) throw new Error('Downloaded file not found after yt-dlp finished.');
     return { path: join(directory, file), info: { title: info.title, description: info.description } };
   }
 
@@ -42,18 +48,18 @@ export class VideoDownloaderService {
     try {
       url = new URL(source);
     } catch {
-      throw new BadRequestException('Укажите корректную ссылку на видео.');
+      throw new BadRequestException('Wrong URL format. Please provide a valid HTTP or HTTPS link.');
     }
     if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) {
-      throw new BadRequestException('Поддерживаются только публичные ссылки HTTP и HTTPS.');
+      throw new BadRequestException('Only public HTTP and HTTPS links are supported.');
     }
     const host = url.hostname.replace(/^\[|\]$/g, '').toLowerCase();
     if (host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local')) {
-      throw new BadRequestException('Локальные адреса недопустимы.');
+      throw new BadRequestException('Local addresses are not allowed.');
     }
     const addresses = isIP(host) ? [{ address: host }] : await lookup(host, { all: true }).catch(() => []);
     if (!addresses.length || addresses.some(({ address }) => !this.isPublicAddress(address))) {
-      throw new BadRequestException('Ссылка должна вести на публичный адрес.');
+      throw new BadRequestException('The link must point to a public address.');
     }
     return url.toString();
   }
@@ -85,14 +91,14 @@ export class VideoDownloaderService {
       child.on('close', (code) => {
         clearTimeout(timeout);
         if (code === 0) resolveOutput(output.trim());
-        else reject(new Error(errorOutput || `yt-dlp завершился с кодом ${code}.`));
+        else reject(new Error(errorOutput || `yt-dlp finished with code ${code}.`));
       });
     });
   }
 
   private downloadError(error: unknown): Error {
-    const message = error instanceof Error ? error.message : 'Неизвестная ошибка';
-    if (message.includes('ENOENT')) return new ServiceUnavailableException('Не найден yt-dlp. Установите yt-dlp и добавьте его в PATH.');
-    return new Error(`Не удалось скачать видео: ${message}`);
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    if (message.includes('ENOENT')) return new ServiceUnavailableException('yt-dlp not found. Please install yt-dlp and add it to PATH.');
+    return new Error(`Failed to download video: ${message}`);
   }
 }

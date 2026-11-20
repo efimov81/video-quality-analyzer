@@ -1,5 +1,5 @@
 import { Inject, Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq } from 'drizzle-orm';
 import { DATABASE, DatabaseConnection } from '../database/database.module';
 import { jobs, Job } from '../database/schema';
 import { VideoDownloaderService } from '../downloader/video-downloader.service';
@@ -31,7 +31,7 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
   }
 
   async list(): Promise<Job[]> {
-    return this.connection.db.select().from(jobs).orderBy(asc(jobs.createdAt));
+    return this.connection.db.select().from(jobs).orderBy(desc(jobs.createdAt));
   }
 
   async get(id: string): Promise<Job | undefined> {

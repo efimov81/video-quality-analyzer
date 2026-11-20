@@ -1,13 +1,16 @@
-import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, signal } from '@angular/core';
-import { DatePipe } from '@angular/common';
+import { ChangeDetectionStrategy, Component, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { ReactiveFormsModule, FormControl, FormGroup, Validators } from '@angular/forms';
 import { JobsApiService } from './core/services/jobs-api.service';
+import { AnalysisApiService } from './core/services/analysis-api.service';
+import { AnalysisSummaryDto } from './api/generated/models/analysis-summary-dto';
+import { VideoCardComponent } from './components/video-card/video-card.component';
+
 import { JobResponseDto } from './api/generated/models/job-response-dto';
 
 @Component({
   selector: 'vqa-root',
   standalone: true,
-  imports: [ReactiveFormsModule, DatePipe],
+  imports: [ReactiveFormsModule, VideoCardComponent],
   templateUrl: './app.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -21,10 +24,14 @@ export class AppComponent implements OnInit, OnDestroy {
   });
   private refreshTimer?: ReturnType<typeof setInterval>;
 
-  constructor(private readonly jobsApi: JobsApiService) {}
+  private readonly analysisApi = inject(AnalysisApiService);
+  readonly analysisRuns = signal<AnalysisSummaryDto[]>([]);
+
+  constructor(private readonly jobsApi: JobsApiService) { }
 
   ngOnInit(): void {
     void this.refresh();
+    this.refreshAnalysisRuns();
     this.refreshTimer = setInterval(() => void this.refresh(), 5000);
   }
 
@@ -53,10 +60,23 @@ export class AppComponent implements OnInit, OnDestroy {
     return ({ QUEUED: 'In Queue', DOWNLOADING: 'Downloading', DOWNLOADED: 'Downloaded', FAILED: 'Failed' })[status];
   }
 
+  runsForVideo(videoId: string): AnalysisSummaryDto[] {
+    return this.analysisRuns().filter(
+      item => item.run.videoId === videoId
+    );
+  }
+
   private refresh(): Promise<void> {
     return new Promise((resolve) => this.jobsApi.list().subscribe({
       next: (jobs) => { this.jobs.set(jobs); this.loadError.set(''); resolve(); },
       error: () => { this.loadError.set('Failed to load job list.'); resolve(); },
     }));
+  }
+
+  private refreshAnalysisRuns(): void {
+    this.analysisApi.list().subscribe({
+      next: runs => this.analysisRuns.set(runs),
+      error: () => console.error('Failed to load analysis runs'),
+    });
   }
 }

@@ -1,0 +1,73 @@
+
+<div class="mt-4 border-t border-slate-200 pt-4">
+  @if (loading()) {
+    <p class="text-sm text-slate-500">Loading report...</p>
+  }
+
+  @if (error()) {
+    <p class="text-sm text-rose-700">{{ error() }}</p>
+  }
+
+  @if (report(); as data) {
+    <div class="mb-4 flex items-center justify-between">
+      <h4 class="font-semibold text-slate-900">Analysis report</h4>
+
+      <span class="rounded-full bg-slate-100 px-3 py-1 text-sm font-medium">
+        {{ data.conclusion }}
+      </span>
+    </div>
+
+    <div class="space-y-3">
+      @for (check of data.checks; track check.id) {
+        <details class="rounded-lg border border-slate-200 p-3">
+          <summary class="flex cursor-pointer items-center justify-between gap-3">
+            <span class="font-medium text-slate-800">
+              {{ check.checkType }}
+            </span>
+
+            <span
+              class="rounded-full px-2 py-1 text-xs font-medium"
+              [class.bg-emerald-50]="check.status === 'PASS'"
+              [class.text-emerald-700]="check.status === 'PASS'"
+              [class.bg-rose-50]="check.status === 'FAIL'"
+              [class.text-rose-700]="check.status === 'FAIL'"
+              [class.bg-amber-50]="check.status === 'WARNING'"
+              [class.text-amber-700]="check.status === 'WARNING'">
+              {{ check.status }}
+            </span>
+          </summary>
+
+          <div class="mt-3 space-y-3 text-sm">
+            <p class="text-slate-600">{{ check.details }}</p>
+
+            <div>
+              <p class="mb-1 font-medium">Measured values</p>
+              <pre class="overflow-x-auto rounded bg-slate-50 p-3 text-xs">{{ check.measuredValue | json }}</pre>
+            </div>
+
+            <div>
+              <p class="mb-1 font-medium">Expected values</p>
+              <pre class="overflow-x-auto rounded bg-slate-50 p-3 text-xs">{{ check.expectedValue | json }}</pre>
+            </div>
+
+            @if (check.evidence.length > 0) {
+              <div>
+                <p class="mb-2 font-medium">Evidence</p>
+
+                @for (evidence of check.evidence; track evidence.id) {
+                  <div class="mb-2 rounded bg-rose-50 p-3">
+                    <p class="font-medium">
+                      {{ evidence.problemType }}
+                    </p>
+                    <p>Timestamp: {{ evidence.timestamp }} s</p>
+                    <p>{{ evidence.details }}</p>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        </details>
+      }
+    </div>
+  }
+</div>

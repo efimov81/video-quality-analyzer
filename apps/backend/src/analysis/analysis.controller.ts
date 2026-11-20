@@ -1,6 +1,7 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post } from '@nestjs/common';
 import { ApiAcceptedResponse, ApiOkResponse, ApiProperty, ApiTags } from '@nestjs/swagger';
 import { IsUUID } from 'class-validator';
+import { AnalysisReportDto, AnalysisRunResponseDto, AnalysisSummaryDto } from './analysis-response.dto';
 import { AnalysisService } from './analysis.service';
 
 class CreateAnalysisRunDto {
@@ -11,33 +12,6 @@ class CreateAnalysisRunDto {
   @ApiProperty({ format: 'uuid' })
   @IsUUID('4')
   profileId!: string;
-}
-
-class AnalysisRunResponseDto {
-  @ApiProperty({ format: 'uuid' }) id!: string;
-  @ApiProperty({ format: 'uuid', description: 'ID скачанного видео (job ID).' }) videoId!: string;
-  @ApiProperty({ format: 'uuid' }) profileId!: string;
-  @ApiProperty() profileVersion!: number;
-  @ApiProperty({ type: 'object', additionalProperties: true }) profileSnapshot!: Record<string, unknown>;
-  @ApiProperty({ enum: ['QUEUED', 'RUNNING', 'COMPLETED', 'FAILED'] }) status!: string;
-  @ApiProperty({ type: String, nullable: true }) error!: string | null;
-  @ApiProperty({ type: String, format: 'date-time' }) createdAt!: string;
-  @ApiProperty({ type: String, format: 'date-time', nullable: true }) startedAt!: string | null;
-  @ApiProperty({ type: String, format: 'date-time', nullable: true }) completedAt!: string | null;
-}
-
-class AnalysisSummaryDto {
-  @ApiProperty({ type: AnalysisRunResponseDto }) run!: AnalysisRunResponseDto;
-  @ApiProperty({ type: String, nullable: true }) videoTitle!: string | null;
-  @ApiProperty({ type: String, nullable: true }) videoPath!: string | null;
-}
-
-class AnalysisReportDto {
-  @ApiProperty({ type: AnalysisRunResponseDto }) run!: AnalysisRunResponseDto;
-  @ApiProperty({ type: 'object', additionalProperties: true }) video!: Record<string, unknown>;
-  @ApiProperty({ type: 'object', additionalProperties: true }) profile!: Record<string, unknown>;
-  @ApiProperty({ enum: ['ACCEPT', 'REJECT', 'MANUAL_REVIEW'] }) conclusion!: string;
-  @ApiProperty({ type: 'array', items: { type: 'object', additionalProperties: true } }) checks!: Record<string, unknown>[];
 }
 
 @ApiTags('analysis')
