@@ -311,7 +311,8 @@ async function verifyTelegram(db, analysis) {
   await notifications.deliverReady(context.botId, api, context.signal);
   const report = deliveries.find(({ messageId }) => messageId === 8);
   assert.equal(report.chatId, '123456');
-  assert.match(report.caption, /Test video.*\n.*\nПрофиль:.*\nОбщий результат: Отклонено/);
+  assert.match(report.caption, /Test video.*\nПрофиль:.*\nОбщий результат: Отклонено/);
+  assert.match(report.caption, /❌ Разрешение/);
   assert.match(report.document, /00:01:02\.250.*Evidence/);
   assert.match(deliveries.find(({ messageId }) => messageId === 10).text, /Не удалось скачать/);
   const restarted = new TelegramNotificationsService({ db }, analysis);
@@ -363,6 +364,7 @@ test('Telegram reports use a document and reply to the original message', async 
   const [{ url, options }] = requests;
   assert.ok(url.endsWith('/sendDocument'));
   assert.deepEqual(JSON.parse(options.body.get('reply_parameters')), { message_id: 42 });
+  assert.equal(options.body.get('parse_mode'), 'HTML');
   assert.equal(options.body.get('chat_id'), '123456');
   assert.equal(await options.body.get('document').text(), '00:01:02.250');
 });

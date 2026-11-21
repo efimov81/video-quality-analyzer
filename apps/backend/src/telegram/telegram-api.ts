@@ -54,6 +54,7 @@ export class TelegramApi {
     form.set('chat_id', chatId);
     form.set('reply_parameters', JSON.stringify({ message_id: messageId }));
     form.set('caption', caption);
+    form.set('parse_mode', 'HTML');
     form.set('document', new Blob([report], { type: 'text/plain;charset=utf-8' }), 'video-analysis.txt');
     return this.call('sendDocument', form, signal, 30_000);
   }

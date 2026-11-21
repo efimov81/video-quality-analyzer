@@ -1,3 +1,4 @@
+import { formatTelegramSummary } from './telegram-summary';
 import type { AnalysisService } from '../analysis/analysis.service';
 import { telegramMessages, type TelegramLanguage } from './telegram-messages';
 
@@ -15,7 +16,6 @@ function timecode(seconds: number): string {
 export function formatTelegramReport(report: Report, language: TelegramLanguage) {
   const messages = telegramMessages[language];
   const title = report.video.title || report.video.sourceUrl;
-  const shortTitle = Array.from(title).slice(0, 140).join('');
   const header = [
     report.video.sourceUrl,
     `${messages.profile}: ${report.profile.name}, ${messages.version} ${report.profile.version}`,
@@ -38,7 +38,7 @@ export function formatTelegramReport(report: Report, language: TelegramLanguage)
     ),
   ]);
   return {
-    caption: [shortTitle, ...header, `${messages.checks}: ${summary.join(' · ')}`, messages.report].join('\n'),
+    caption: formatTelegramSummary(report, language),
     document: [title, ...header, `${messages.checks}: ${summary.join(' · ')}`, ...details, ''].join('\n'),
   };
 }
