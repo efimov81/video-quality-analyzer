@@ -57,7 +57,7 @@ export class ProfilesService {
       .where(and(eq(acceptanceProfileVersions.profileId, profile.id), eq(acceptanceProfileVersions.version, profile.version)))
       .limit(1);
     if (!version) throw profileNotFound();
-    return version.id;
+    return { id: version.id, code: profile.code, name: profile.name, version: profile.version };
   }
 
   create(input: SaveProfileInput) {

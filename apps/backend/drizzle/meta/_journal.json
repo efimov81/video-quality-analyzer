@@ -78,6 +78,13 @@
       "when": 1795249019592,
       "tag": "0010_analysis-profiles",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1795253059635,
+      "tag": "0011_telegram",
+      "breakpoints": true
     }
   ]
 }

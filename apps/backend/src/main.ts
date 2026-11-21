@@ -10,6 +10,7 @@ async function bootstrap(): Promise<void> {
   loadRootEnv();
   const app = await NestFactory.create(AppModule);
   app.setGlobalPrefix('');
+  app.enableShutdownHooks();
   const validationError = new ValidationPipe().createExceptionFactory();
   app.useGlobalPipes(new ValidationPipe({
     whitelist: true,

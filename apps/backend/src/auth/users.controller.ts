@@ -1,6 +1,7 @@
-import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
-import { ApiCookieAuth, ApiCreatedResponse, ApiNoContentResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger';
-import { CreateUserDto, ResetPasswordDto, UpdateUserDto, UserResponseDto } from './auth.dto';
+import { ApiMessageErrorDto } from '../common/api-message';
+import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Put } from '@nestjs/common';
+import { ApiConflictResponse, ApiCookieAuth, ApiCreatedResponse, ApiNoContentResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import { AdminUserResponseDto, CreateUserDto, ResetPasswordDto, TelegramIdentityDto, UpdateUserDto, UserResponseDto } from './auth.dto';
 import type { SessionUser } from './auth.models';
 import { Access, CurrentUser } from './session.guard';
 import { UsersService } from './users.service';
@@ -13,7 +14,7 @@ export class UsersController {
   constructor(private readonly users: UsersService) {}
 
   @Get()
-  @ApiOkResponse({ type: [UserResponseDto] })
+  @ApiOkResponse({ type: [AdminUserResponseDto] })
   list() {
     return this.users.list();
   }
@@ -28,6 +29,13 @@ export class UsersController {
   @ApiOkResponse({ type: UserResponseDto })
   update(@Param('id', ParseUUIDPipe) id: string, @Body() body: UpdateUserDto) {
     return this.users.update(id, body);
+  }
+
+  @Put(':id/telegram')
+  @ApiConflictResponse({ type: ApiMessageErrorDto })
+  @ApiOkResponse({ type: TelegramIdentityDto })
+  setTelegramIdentity(@Param('id', ParseUUIDPipe) id: string, @Body() body: TelegramIdentityDto) {
+    return this.users.setTelegramIdentity(id, body.telegramId);
   }
 
   @Post(':id/password')

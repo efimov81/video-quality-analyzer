@@ -3,7 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TranslocoPipe } from '@jsverse/transloco';
 import type { Observable } from 'rxjs';
-import type { UserResponseDto } from '../../api/generated/models/user-response-dto';
+import type { AdminUserResponseDto } from '../../api/generated/models/admin-user-response-dto';
 import { UsersService } from '../../api/generated/services/users.service';
 import { SessionService } from '../../core/auth/session.service';
 import { requestError } from '../../core/i18n/request-error';
@@ -15,8 +15,8 @@ import { requestError } from '../../core/i18n/request-error';
 })
 export class UsersComponent implements OnInit {
   readonly session = inject(SessionService);
-  readonly users = signal<UserResponseDto[]>([]);
-  readonly selected = signal<UserResponseDto | null>(null);
+  readonly users = signal<AdminUserResponseDto[]>([]);
+  readonly selected = signal<AdminUserResponseDto | null>(null);
   readonly creating = signal(false);
   readonly busy = signal(false);
   readonly loadError = signal('');
@@ -28,9 +28,12 @@ export class UsersComponent implements OnInit {
   readonly accountForm = this.forms.group({
     login: ['', [Validators.required, Validators.pattern(/^[a-z0-9._-]+$/), Validators.maxLength(64)]],
     displayName: ['', [Validators.required, Validators.pattern(/.*\S.*/s), Validators.maxLength(120)]],
-    role: this.forms.control<UserResponseDto['role']>('user'),
+    role: this.forms.control<AdminUserResponseDto['role']>('user'),
     isActive: [true],
     password: ['', [Validators.required, Validators.minLength(8), Validators.maxLength(128)]],
+  });
+  readonly telegramForm = this.forms.group({
+    telegramId: ['', Validators.pattern(/^[1-9][0-9]{0,15}$/)],
   });
   readonly resetForm = this.forms.group({
     password: ['', [Validators.required, Validators.minLength(8), Validators.maxLength(128)]],
@@ -48,12 +51,13 @@ export class UsersComponent implements OnInit {
     this.creating.set(true);
   }
 
-  select(user: UserResponseDto | null): void {
+  select(user: AdminUserResponseDto | null): void {
     this.creating.set(false);
     this.selected.set(user);
     this.error.set('');
     this.notice.set('');
     this.resetForm.reset();
+    this.telegramForm.reset({ telegramId: user?.telegramId ?? '' });
     this.accountForm.reset({
       login: user?.login ?? '',
       displayName: user?.displayName ?? '',
@@ -74,7 +78,8 @@ export class UsersComponent implements OnInit {
     const request = selected
       ? this.api.usersControllerUpdate({ id: selected.id, body: { displayName, role, isActive } })
       : this.api.usersControllerCreate({ body: { login, password, displayName, role } });
-    this.mutate(request, (user) => {
+    this.mutate(request, (account) => {
+      const user = { ...account, telegramId: selected?.telegramId ?? null };
       this.users.update((users) => selected
         ? users.map((item) => item.id === user.id ? user : item)
         : [...users, user]);
@@ -82,6 +87,23 @@ export class UsersComponent implements OnInit {
       this.session.updateUser(user);
       this.notice.set('auth.userSaved');
     });
+  }
+
+  saveTelegramIdentity(): void {
+    const user = this.selected();
+    if (!user || this.telegramForm.invalid || this.busy()) return;
+    const telegramId = this.telegramForm.controls.telegramId.value || null;
+    this.mutate(this.api.usersControllerSetTelegramIdentity({ id: user.id, body: { telegramId } }), (identity) => {
+      const updated = { ...user, telegramId: identity.telegramId };
+      this.users.update((users) => users.map((item) => item.id === updated.id ? updated : item));
+      this.select(updated);
+      this.notice.set('auth.telegramSaved');
+    });
+  }
+
+  removeTelegramIdentity(): void {
+    this.telegramForm.reset();
+    this.saveTelegramIdentity();
   }
 
   resetPassword(): void {

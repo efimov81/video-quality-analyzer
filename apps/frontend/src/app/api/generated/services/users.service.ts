@@ -10,6 +10,8 @@ import { BaseService } from '../base-service';
 import { ApiConfiguration } from '../api-configuration';
 import { StrictHttpResponse } from '../strict-http-response';
 
+import { AdminUserResponseDto } from '../models/admin-user-response-dto';
+import { TelegramIdentityDto } from '../models/telegram-identity-dto';
 import { UserResponseDto } from '../models/user-response-dto';
 import { usersControllerCreate } from '../fn/users/users-controller-create';
 import { UsersControllerCreate$Params } from '../fn/users/users-controller-create';
@@ -17,6 +19,8 @@ import { usersControllerList } from '../fn/users/users-controller-list';
 import { UsersControllerList$Params } from '../fn/users/users-controller-list';
 import { usersControllerResetPassword } from '../fn/users/users-controller-reset-password';
 import { UsersControllerResetPassword$Params } from '../fn/users/users-controller-reset-password';
+import { usersControllerSetTelegramIdentity } from '../fn/users/users-controller-set-telegram-identity';
+import { UsersControllerSetTelegramIdentity$Params } from '../fn/users/users-controller-set-telegram-identity';
 import { usersControllerUpdate } from '../fn/users/users-controller-update';
 import { UsersControllerUpdate$Params } from '../fn/users/users-controller-update';
 
@@ -35,7 +39,7 @@ export class UsersService extends BaseService {
    *
    * This method doesn't expect any request body.
    */
-  usersControllerList$Response(params?: UsersControllerList$Params, context?: HttpContext): Observable<StrictHttpResponse<Array<UserResponseDto>>> {
+  usersControllerList$Response(params?: UsersControllerList$Params, context?: HttpContext): Observable<StrictHttpResponse<Array<AdminUserResponseDto>>> {
     const obs = usersControllerList(this.http, this.rootUrl, params, context);
     return obs;
   }
@@ -46,10 +50,10 @@ export class UsersService extends BaseService {
    *
    * This method doesn't expect any request body.
    */
-  usersControllerList(params?: UsersControllerList$Params, context?: HttpContext): Observable<Array<UserResponseDto>> {
+  usersControllerList(params?: UsersControllerList$Params, context?: HttpContext): Observable<Array<AdminUserResponseDto>> {
     const resp = this.usersControllerList$Response(params, context);
     return resp.pipe(
-      map((r: StrictHttpResponse<Array<UserResponseDto>>): Array<UserResponseDto> => r.body)
+      map((r: StrictHttpResponse<Array<AdminUserResponseDto>>): Array<AdminUserResponseDto> => r.body)
     );
   }
 
@@ -104,6 +108,33 @@ export class UsersService extends BaseService {
     const resp = this.usersControllerUpdate$Response(params, context);
     return resp.pipe(
       map((r: StrictHttpResponse<UserResponseDto>): UserResponseDto => r.body)
+    );
+  }
+
+  /** Path part for operation `usersControllerSetTelegramIdentity()` */
+  static readonly UsersControllerSetTelegramIdentityPath = '/api/users/{id}/telegram';
+
+  /**
+   * This method provides access to the full `HttpResponse`, allowing access to response headers.
+   * To access only the response body, use `usersControllerSetTelegramIdentity()` instead.
+   *
+   * This method sends `application/json` and handles request body of type `application/json`.
+   */
+  usersControllerSetTelegramIdentity$Response(params: UsersControllerSetTelegramIdentity$Params, context?: HttpContext): Observable<StrictHttpResponse<TelegramIdentityDto>> {
+    const obs = usersControllerSetTelegramIdentity(this.http, this.rootUrl, params, context);
+    return obs;
+  }
+
+  /**
+   * This method provides access only to the response body.
+   * To access the full response (for headers, for example), `usersControllerSetTelegramIdentity$Response()` instead.
+   *
+   * This method sends `application/json` and handles request body of type `application/json`.
+   */
+  usersControllerSetTelegramIdentity(params: UsersControllerSetTelegramIdentity$Params, context?: HttpContext): Observable<TelegramIdentityDto> {
+    const resp = this.usersControllerSetTelegramIdentity$Response(params, context);
+    return resp.pipe(
+      map((r: StrictHttpResponse<TelegramIdentityDto>): TelegramIdentityDto => r.body)
     );
   }
 

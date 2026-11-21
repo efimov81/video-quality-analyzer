@@ -19,7 +19,10 @@ const { SessionGuard } = require('../dist/src/auth/session.guard');
 const { UsersController } = require('../dist/src/auth/users.controller');
 const { UsersService } = require('../dist/src/auth/users.service');
 const { DATABASE } = require('../dist/src/database/database.module');
-const { acceptanceProfiles, analysisCheckResults, analysisRuns, jobs, sessions, users } = require('../dist/src/database/schema');
+const { acceptanceProfiles, analysisCheckResults, analysisEvidence, analysisRuns, jobAutoAnalyses, jobs, sessions, telegramJobNotifications, users } = require('../dist/src/database/schema');
+const { TelegramApi } = require('../dist/src/telegram/telegram-api');
+const { TelegramCommandsService } = require('../dist/src/telegram/telegram-commands.service');
+const { TelegramNotificationsService } = require('../dist/src/telegram/telegram-notifications.service');
 const { JobsController } = require('../dist/src/jobs/jobs.controller');
 const { JobsService } = require('../dist/src/jobs/jobs.service');
 
@@ -235,12 +238,88 @@ async function verifyAuth(app, db, enqueued) {
   const { data: downloaded } = await call(`/jobs/${explicitJob.id}`, { cookie: admin.cookie });
   assert.equal(downloaded.status, 'DOWNLOADED');
 
+  const bind = (userId, telegramId, cookie, status = 200) => call(`/users/${userId}/telegram`, {
+    method: 'PUT', body: { telegramId }, cookie, status,
+  });
+  await bind(bob.user.id, '123456', reactivatedBob.cookie, 403);
+  assert.deepEqual((await bind(bob.user.id, '123456', admin.cookie)).data, { telegramId: '123456' });
+  await bind(alice.user.id, '123456', admin.cookie, 409);
+  assert.equal((await call('/users', { cookie: admin.cookie })).data.find(({ id }) => id === bob.user.id).telegramId, '123456');
+
+  await verifyTelegram(db, app.get(AnalysisService));
+  assert.deepEqual((await bind(bob.user.id, null, admin.cookie)).data, { telegramId: null });
+  assert.equal((await call('/users', { cookie: admin.cookie })).data.find(({ id }) => id === bob.user.id).telegramId, null);
+
   const logout = await post('/auth/logout', undefined, admin.cookie, 204);
   assert.match(logout.cookie, /Expires=/i);
   await call('/auth/me', { cookie: admin.cookie, status: 401 });
   await db.update(users).set({ login: 'renamed-admin' }).where(eq(users.id, admin.user.id));
   await app.get(AuthService).onModuleInit();
   assert.deepEqual(await db.select().from(users).where(eq(users.login, 'admin')), []);
+}
+
+async function verifyTelegram(db, analysis) {
+  const profiles = new ProfilesService({ db });
+  const telegram = () => new TelegramCommandsService({ db }, new JobsService({ db }, {}, profiles), profiles);
+  const deliveries = [];
+  const api = {
+    sendMessage: async (chatId, messageId, text) => deliveries.push({ chatId, messageId, text }),
+    sendReport: async (chatId, messageId, caption, document) => deliveries.push({ chatId, messageId, caption, document }),
+  };
+  const context = { botId: '777', username: 'testbot', api, signal: new AbortController().signal };
+  const send = async (handler, fromId, messageId, text) => {
+    await handler.handle({
+      from: { id: fromId, language_code: 'ru-RU' }, chat: { id: fromId, type: 'private' }, message_id: messageId, text,
+    }, context);
+    return deliveries.at(-1).text;
+  };
+  const handler = telegram();
+  assert.match(await send(handler, 987654, 1, '/id'), /Ваш Telegram ID: 987654/);
+  assert.match(await send(handler, 987654, 2, '/lang en'), /Language set to English/);
+  assert.match(await send(telegram(), 987654, 3, '/profiles'), /Ask an administrator/);
+  assert.match(await send(handler, 123456, 4, '/profiles'), /base —/);
+  assert.match(await send(handler, 123456, 5, '/analyze https://youtu.be/AAAAAAAAAAA'), /по умолчанию не настроен/);
+  assert.match(await send(handler, 123456, 6, '/analyze full https://youtu.be/AAAAAAAAAAA'), /Профиль неактивен/);
+  assert.match(await send(handler, 123456, 7, '/analyze base https://example.com/AAAA'), /YouTube/);
+  const base = await profiles.getByCode('base');
+  await profiles.update(base.id, { ...base, isDefault: true });
+
+  assert.match(await send(handler, 123456, 8, 'https://youtu.be/AAAAAAAAAAA'), /Видео принято.*\nПрофиль: .*\(base\)/);
+  assert.match(await send(handler, 123456, 9, '/analyze https://www.youtube.com/watch?v=AAAAAAAAAAA'), /Видео уже добавлено/);
+  assert.match(await send(handler, 123456, 10, '/analyze base https://youtu.be/BBBBBBBBBBB'), /Видео принято/);
+  const findVideo = async (id) => (await db.select().from(jobs)
+    .where(eq(jobs.sourceUrl, 'https://www.youtube.com/watch?v=' + id)))[0];
+  const video = await findVideo('AAAAAAAAAAA');
+  const failedVideo = await findVideo('BBBBBBBBBBB');
+  assert.equal(video.source, 'telegram');
+  const [owner] = await db.select({ id: users.id }).from(users).where(eq(users.login, 'bob'));
+  assert.equal(video.createdByUserId, owner.id);
+  await db.update(jobs).set({ status: 'DOWNLOADED', localPath: __filename, title: 'Test video' }).where(eq(jobs.id, video.id));
+  await db.update(jobs).set({ status: 'FAILED' }).where(eq(jobs.id, failedVideo.id));
+  await analysis.dispatchPendingAutoAnalyses();
+  const [plan] = await db.select().from(jobAutoAnalyses).where(eq(jobAutoAnalyses.videoId, video.id));
+  await db.update(analysisRuns).set({ status: 'COMPLETED' }).where(eq(analysisRuns.id, plan.runId));
+  const [check] = await db.insert(analysisCheckResults).values({
+    analysisRunId: plan.runId, checkType: 'resolution', status: 'FAIL', details: 'Technical details', analyzerVersion: '1',
+  }).returning();
+  await db.insert(analysisEvidence).values({
+    analysisCheckResultId: check.id, timestamp: 62.25, problemType: 'resolution', details: 'Evidence',
+  });
+
+  deliveries.length = 0;
+  const notifications = new TelegramNotificationsService({ db }, analysis);
+  await notifications.deliverReady(context.botId, api, context.signal);
+  const report = deliveries.find(({ messageId }) => messageId === 8);
+  assert.equal(report.chatId, '123456');
+  assert.match(report.caption, /Test video.*\n.*\nПрофиль:.*\nОбщий результат: Отклонено/);
+  assert.match(report.document, /00:01:02\.250.*Evidence/);
+  assert.match(deliveries.find(({ messageId }) => messageId === 10).text, /Не удалось скачать/);
+  const restarted = new TelegramNotificationsService({ db }, analysis);
+  await restarted.recover(context.botId);
+  await restarted.deliverReady(context.botId, api, context.signal);
+  assert.equal(deliveries.length, 2);
+  const [notification] = await db.select().from(telegramJobNotifications).where(eq(telegramJobNotifications.videoId, video.id));
+  assert.equal(notification.state, 'sent');
 }
 
 test('auth sessions and ownership are enforced through the HTTP API', { skip: !connectionString }, async () => {
@@ -271,4 +350,19 @@ test('auth sessions and ownership are enforced through the HTTP API', { skip: !c
   } finally {
     await pool.end();
   }
+});
+
+test('Telegram reports use a document and reply to the original message', async (t) => {
+  const requests = [];
+  t.mock.method(globalThis, 'fetch', async (url, options) => {
+    requests.push({ url, options });
+    return new Response(JSON.stringify({ ok: true, result: { message_id: 51 } }));
+  });
+  const api = new TelegramApi('777:test-token');
+  await api.sendReport('123456', 42, 'Summary', '00:01:02.250', new AbortController().signal);
+  const [{ url, options }] = requests;
+  assert.ok(url.endsWith('/sendDocument'));
+  assert.deepEqual(JSON.parse(options.body.get('reply_parameters')), { message_id: 42 });
+  assert.equal(options.body.get('chat_id'), '123456');
+  assert.equal(await options.body.get('document').text(), '00:01:02.250');
 });

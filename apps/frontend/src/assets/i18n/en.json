@@ -218,5 +218,12 @@
   "video.batchResult": "Queued: {{queued}} · Skipped: {{skipped}} · Failed: {{failed}}",
   "video.select": "Select video",
   "video.selectNamed": "Select {{name}}",
-  "video.noAnalyses": "No analyses yet."
+  "video.noAnalyses": "No analyses yet.",
+  "auth.telegramBinding": "Telegram account",
+  "auth.telegramId": "Telegram ID",
+  "auth.telegramHint": "Use /id in the bot to get the numeric ID.",
+  "auth.telegramSave": "Save Telegram ID",
+  "auth.telegramRemove": "Remove link",
+  "auth.telegramSaved": "Telegram link updated.",
+  "errors.telegramIdTaken": "This Telegram ID is already linked."
 }

@@ -218,5 +218,12 @@
   "video.batchResult": "Поставлено в очередь: {{queued}} · Пропущено: {{skipped}} · Ошибки: {{failed}}",
   "video.select": "Выбрать видео",
   "video.selectNamed": "Выбрать {{name}}",
-  "video.noAnalyses": "Анализов пока нет."
+  "video.noAnalyses": "Анализов пока нет.",
+  "auth.telegramBinding": "Привязка Telegram",
+  "auth.telegramId": "Telegram ID",
+  "auth.telegramHint": "Числовой ID можно получить командой /id у бота.",
+  "auth.telegramSave": "Сохранить Telegram ID",
+  "auth.telegramRemove": "Удалить привязку",
+  "auth.telegramSaved": "Привязка Telegram обновлена.",
+  "errors.telegramIdTaken": "Этот Telegram ID уже привязан."
 }

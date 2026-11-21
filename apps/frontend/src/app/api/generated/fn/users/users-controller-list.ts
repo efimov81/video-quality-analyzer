@@ -7,12 +7,12 @@ import { filter, map } from 'rxjs/operators';
 import { StrictHttpResponse } from '../../strict-http-response';
 import { RequestBuilder } from '../../request-builder';
 
-import { UserResponseDto } from '../../models/user-response-dto';
+import { AdminUserResponseDto } from '../../models/admin-user-response-dto';
 
 export interface UsersControllerList$Params {
 }
 
-export function usersControllerList(http: HttpClient, rootUrl: string, params?: UsersControllerList$Params, context?: HttpContext): Observable<StrictHttpResponse<Array<UserResponseDto>>> {
+export function usersControllerList(http: HttpClient, rootUrl: string, params?: UsersControllerList$Params, context?: HttpContext): Observable<StrictHttpResponse<Array<AdminUserResponseDto>>> {
   const rb = new RequestBuilder(rootUrl, usersControllerList.PATH, 'get');
   if (params) {
   }
@@ -22,7 +22,7 @@ export function usersControllerList(http: HttpClient, rootUrl: string, params?: 
   ).pipe(
     filter((r: any): r is HttpResponse<any> => r instanceof HttpResponse),
     map((r: HttpResponse<any>) => {
-      return r as StrictHttpResponse<Array<UserResponseDto>>;
+      return r as StrictHttpResponse<Array<AdminUserResponseDto>>;
     })
   );
 }

@@ -131,6 +131,24 @@ export const jobAutoAnalyses = pgTable('job_auto_analyses', {
   index('job_auto_analyses_pending_idx').on(table.videoId).where(sql`${table.dispatchedAt} IS NULL`),
 ]);
 
+export const telegramPreferences = pgTable('telegram_preferences', {
+  telegramUserId: text('telegram_user_id').primaryKey(),
+  language: text('language').$type<'en' | 'ru'>().notNull(),
+});
+
+export const telegramJobNotifications = pgTable('telegram_job_notifications', {
+  videoId: uuid('video_id').primaryKey().references(() => jobs.id, { onDelete: 'cascade' }),
+  botId: text('bot_id').notNull(),
+  telegramUserId: text('telegram_user_id').notNull(),
+  chatId: text('chat_id').notNull(),
+  messageId: integer('message_id').notNull(),
+  state: text('state').$type<'pending' | 'sending' | 'sent' | 'failed' | 'skipped' | 'uncertain'>().notNull().default('pending'),
+  retryAt: timestamp('retry_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex('telegram_notification_message_unique').on(table.botId, table.chatId, table.messageId),
+  index('telegram_notifications_pending_idx').on(table.botId, table.retryAt).where(sql`${table.state} = 'pending'`),
+]);
+
 export const analysisCheckResults = pgTable('analysis_check_results', {
   id: uuid('id').defaultRandom().primaryKey(),
   analysisRunId: uuid('analysis_run_id').notNull().references(() => analysisRuns.id, { onDelete: 'cascade' }),

@@ -16,7 +16,7 @@ import { ProfilesController } from './profiles.controller';
 import { ProfilesService } from './profiles.service';
 
 @Module({
-  exports: [ProfilesService],
+  exports: [ProfilesService, AnalysisService],
   controllers: [AnalysisController, ProfilesController],
   providers: [
     ProfilesService,

@@ -57,6 +57,27 @@
         <button type="submit" class="account-button" [disabled]="accountForm.invalid || busy()">{{ 'auth.save' | transloco }}</button>
       </form>
 
+      @if (selected(); as user) {
+        <form class="account-panel self-start" [formGroup]="telegramForm" (ngSubmit)="saveTelegramIdentity()">
+          <h2 class="text-lg font-semibold">{{ 'auth.telegramBinding' | transloco }}</h2>
+          <label class="block text-sm font-medium">
+            {{ 'auth.telegramId' | transloco }}
+            <input class="account-input" formControlName="telegramId" inputmode="numeric" autocomplete="off" maxlength="16" />
+          </label>
+          <p class="text-sm text-slate-600">{{ 'auth.telegramHint' | transloco }}</p>
+          <div class="flex flex-wrap gap-2">
+            <button type="submit" class="account-button" [disabled]="telegramForm.invalid || busy()">
+              {{ 'auth.telegramSave' | transloco }}
+            </button>
+            @if (user.telegramId) {
+              <button type="button" class="nav-link" [disabled]="busy()" (click)="removeTelegramIdentity()">
+                {{ 'auth.telegramRemove' | transloco }}
+              </button>
+            }
+          </div>
+        </form>
+      }
+
       @if (selected()?.login && selected()?.id !== session.user()?.id) {
         <form class="account-panel self-start" [formGroup]="resetForm" (ngSubmit)="resetPassword()">
           <h2 class="text-lg font-semibold">{{ 'auth.resetPassword' | transloco }}</h2>

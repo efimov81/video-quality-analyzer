@@ -1,13 +1,28 @@
-import { errorMessageCode } from '../common/api-message';
-import { ConflictException, Inject, Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { errorMessageCode, localizedException } from '../common/api-message';
+import { BadRequestException, ConflictException, Inject, Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { and, asc, desc, eq, getTableColumns, sql } from 'drizzle-orm';
 import { DATABASE, DatabaseConnection } from '../database/database.module';
-import { jobAutoAnalyses, jobs, Job, users } from '../database/schema';
+import { jobAutoAnalyses, jobs, Job, telegramJobNotifications, users } from '../database/schema';
 import { VideoDownloaderService } from '../downloader/video-downloader.service';
 import type { SessionUser } from '../auth/auth.models';
+import { selectTelegramUser } from '../auth/telegram-identity';
 import { accessDenied } from '../auth/session.guard';
 import { ProfilesService } from '../analysis/profiles.service';
-import { defaultJobSource } from './job-source';
+import { defaultJobSource, type JobSource } from './job-source';
+
+type Transaction = Parameters<Parameters<DatabaseConnection['db']['transaction']>[0]>[0];
+
+interface JobOptions {
+  autoAnalyze?: boolean;
+  profileCode?: string;
+}
+
+interface TelegramOrigin {
+  botId: string;
+  telegramUserId: string;
+  chatId: string;
+  messageId: number;
+}
 
 @Injectable()
 export class JobsService implements OnModuleInit, OnModuleDestroy {
@@ -31,43 +46,63 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
     if (this.timer) clearInterval(this.timer);
   }
 
-  async create(sourceUrl: string, user: SessionUser, options: { autoAnalyze?: boolean; profileCode?: string } = {}): Promise<Job> {
+  async create(sourceUrl: string, user: SessionUser, options: JobOptions = {}): Promise<Job> {
+    const { job } = await this.connection.db.transaction(
+      (tx) => this.insertJob(tx, sourceUrl, user.id, defaultJobSource, options),
+      { isolationLevel: 'read committed' },
+    );
+    return job;
+  }
+
+  async createFromTelegram(sourceUrl: string, origin: TelegramOrigin, profileCode?: string) {
+    return this.connection.db.transaction(async (tx) => {
+      if (origin.chatId !== origin.telegramUserId) throw accessDenied();
+      const [user] = await selectTelegramUser(tx, origin.telegramUserId).for('share', { of: users });
+      const [current] = await selectTelegramUser(tx, origin.telegramUserId);
+      if (!current?.isActive || current.id !== user?.id) throw accessDenied();
+      const { rows: [video] } = await tx.execute<{ key: string }>(sql`SELECT job_video_key(${sourceUrl}) AS key`);
+      if (sourceUrl.length > 2048 || !video?.key.startsWith('youtube:')) {
+        throw localizedException(BadRequestException, 'Укажите ссылку на видео YouTube.', 'errors.telegramYouTubeOnly');
+      }
+      const canonicalUrl = `https://www.youtube.com/watch?v=${video.key.slice('youtube:'.length)}`;
+      const result = await this.insertJob(tx, canonicalUrl, user.id, 'telegram', { autoAnalyze: true, profileCode });
+      if (!result.profile) throw new Error('The automatic Telegram job has no profile.');
+      await tx.insert(telegramJobNotifications).values({ videoId: result.job.id, ...origin });
+      return { job: result.job, profile: result.profile };
+    }, { isolationLevel: 'read committed' });
+  }
+
+  private async insertJob(tx: Transaction, sourceUrl: string, userId: string, source: JobSource, options: JobOptions) {
     const videoKey = sql`job_video_key(${sourceUrl})`;
     const storedVideoKey = sql`job_video_key(${jobs.sourceUrl})`;
-    return this.connection.db.transaction(async (tx) => {
-      // Read the existing jobs after the lock, including any insert committed by the previous holder.
-      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${'jobs:' + user.id}), hashtext(${videoKey}))`);
-      const [existing] = await tx.select({ id: jobs.id }).from(jobs)
-        .where(and(
-          eq(jobs.createdByUserId, user.id),
-          sql`md5(${storedVideoKey}) = md5(${videoKey})`,
-          sql`${storedVideoKey} = ${videoKey}`,
-        ))
-        .orderBy(asc(jobs.createdAt), asc(jobs.id))
-        .limit(1);
-      if (existing) {
-        throw new ConflictException({
-          statusCode: 409,
-          error: 'Conflict',
-          code: 'VIDEO_ALREADY_EXISTS',
-          message: 'Видео уже добавлено',
-          jobId: existing.id,
-        });
-      }
+    // Read the existing jobs after the lock, including any insert committed by the previous holder.
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${'jobs:' + userId}), hashtext(${videoKey}))`);
+    const [existing] = await tx.select({ id: jobs.id }).from(jobs)
+      .where(and(
+        eq(jobs.createdByUserId, userId),
+        sql`md5(${storedVideoKey}) = md5(${videoKey})`,
+        sql`${storedVideoKey} = ${videoKey}`,
+      ))
+      .orderBy(asc(jobs.createdAt), asc(jobs.id))
+      .limit(1);
+    if (existing) {
+      throw new ConflictException({
+        statusCode: 409,
+        error: 'Conflict',
+        code: 'VIDEO_ALREADY_EXISTS',
+        message: 'Видео уже добавлено',
+        jobId: existing.id,
+      });
+    }
 
-      const profileVersionId = options.autoAnalyze || options.profileCode !== undefined
-        ? await this.profiles.resolveVersion(tx, options.profileCode)
-        : undefined;
-      const [job] = await tx.insert(jobs).values({
-        sourceUrl,
-        source: defaultJobSource,
-        createdByUserId: user.id,
-      }).returning();
-      if (options.autoAnalyze && profileVersionId) {
-        await tx.insert(jobAutoAnalyses).values({ videoId: job.id, profileVersionId });
-      }
-      return job;
-    }, { isolationLevel: 'read committed' });
+    const profile = options.autoAnalyze || options.profileCode !== undefined
+      ? await this.profiles.resolveVersion(tx, options.profileCode)
+      : undefined;
+    const [job] = await tx.insert(jobs).values({ sourceUrl, source, createdByUserId: userId }).returning();
+    if (options.autoAnalyze && profile) {
+      await tx.insert(jobAutoAnalyses).values({ videoId: job.id, profileVersionId: profile.id });
+    }
+    return { job, profile };
   }
 
   async list(user: SessionUser) {

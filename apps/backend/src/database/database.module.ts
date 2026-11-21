@@ -1,4 +1,4 @@
-import { Global, Inject, Module, OnModuleDestroy } from '@nestjs/common';
+import { Global, Inject, Module, OnApplicationShutdown } from '@nestjs/common';
 import { drizzle, NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import * as schema from './schema';
@@ -18,10 +18,10 @@ export const DATABASE = Symbol('DATABASE');
   ],
   exports: [DATABASE],
 })
-export class DatabaseModule implements OnModuleDestroy {
+export class DatabaseModule implements OnApplicationShutdown {
   constructor(@Inject(DATABASE) private readonly connection: DatabaseConnection) {}
 
-  async onModuleDestroy(): Promise<void> {
+  async onApplicationShutdown(): Promise<void> {
     await this.connection.pool.end();
   }
 }

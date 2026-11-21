@@ -7,6 +7,7 @@ export { RequestBuilder } from './request-builder';
 export type { StrictHttpResponse } from './strict-http-response';
 
 
+export type { AdminUserResponseDto } from './models/admin-user-response-dto';
 export type { AnalysisCheckResultDto } from './models/analysis-check-result-dto';
 export type { AnalysisEvidenceDto } from './models/analysis-evidence-dto';
 export type { AnalysisReportDto } from './models/analysis-report-dto';
@@ -27,6 +28,7 @@ export type { ProfileSnapshotDto } from './models/profile-snapshot-dto';
 export type { ProfileVersionResponseDto } from './models/profile-version-response-dto';
 export type { ResetPasswordDto } from './models/reset-password-dto';
 export type { SaveProfileDto } from './models/save-profile-dto';
+export type { TelegramIdentityDto } from './models/telegram-identity-dto';
 export type { UpdateUserDto } from './models/update-user-dto';
 export type { UserResponseDto } from './models/user-response-dto';
 export type { VideoAlreadyExistsDto } from './models/video-already-exists-dto';
@@ -77,5 +79,7 @@ export type { UsersControllerCreate$Params as UsersControllerCreate$Params } fro
 export { usersControllerCreate as usersControllerCreate } from './fn/users/users-controller-create';
 export type { UsersControllerUpdate$Params as UsersControllerUpdate$Params } from './fn/users/users-controller-update';
 export { usersControllerUpdate as usersControllerUpdate } from './fn/users/users-controller-update';
+export type { UsersControllerSetTelegramIdentity$Params as UsersControllerSetTelegramIdentity$Params } from './fn/users/users-controller-set-telegram-identity';
+export { usersControllerSetTelegramIdentity as usersControllerSetTelegramIdentity } from './fn/users/users-controller-set-telegram-identity';
 export type { UsersControllerResetPassword$Params as UsersControllerResetPassword$Params } from './fn/users/users-controller-reset-password';
 export { usersControllerResetPassword as usersControllerResetPassword } from './fn/users/users-controller-reset-password';

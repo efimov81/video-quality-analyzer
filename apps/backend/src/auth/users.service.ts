@@ -2,7 +2,7 @@ import { BadRequestException, ConflictException, Inject, Injectable, NotFoundExc
 import { and, asc, eq, ne, sql } from 'drizzle-orm';
 import { localizedException } from '../common/api-message';
 import { DATABASE, type DatabaseConnection } from '../database/database.module';
-import { sessions, users } from '../database/schema';
+import { externalIdentities, sessions, users } from '../database/schema';
 import type { CreateUserDto, UpdateUserDto } from './auth.dto';
 import { sessionUserFields } from './auth.service';
 import { hashPassword } from './password';
@@ -14,7 +14,14 @@ export class UsersService {
   constructor(@Inject(DATABASE) private readonly connection: DatabaseConnection) {}
 
   list() {
-    return this.connection.db.select(sessionUserFields).from(users).orderBy(asc(users.login), asc(users.displayName));
+    const { db } = this.connection;
+    const telegram = db.select({ telegramId: externalIdentities.externalUserId }).from(externalIdentities)
+      .where(and(eq(externalIdentities.userId, users.id), eq(externalIdentities.provider, 'telegram')))
+      .orderBy(asc(externalIdentities.externalUserId)).limit(1).as('telegram');
+    return db.select({
+      ...sessionUserFields,
+      telegramId: telegram.telegramId,
+    }).from(users).leftJoinLateral(telegram, sql`true`).orderBy(asc(users.login), asc(users.displayName));
   }
 
   async create(body: CreateUserDto) {
@@ -55,6 +62,25 @@ export class UsersService {
       }).where(eq(users.id, id)).returning(sessionUserFields);
       if (!isActive) await tx.delete(sessions).where(eq(sessions.userId, id));
       return user;
+    });
+  }
+
+  async setTelegramIdentity(id: string, telegramId: string | null) {
+    return this.connection.db.transaction(async (tx) => {
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext('vqa:telegram-bindings'))`);
+      const [user] = await tx.select({ id: users.id }).from(users).where(eq(users.id, id)).for('update');
+      if (!user) throw userNotFound();
+      await tx.delete(externalIdentities)
+        .where(and(eq(externalIdentities.userId, id), eq(externalIdentities.provider, 'telegram')));
+      if (telegramId !== null) {
+        const [binding] = await tx.insert(externalIdentities)
+          .values({ userId: id, provider: 'telegram', externalUserId: telegramId })
+          .onConflictDoNothing({ target: [externalIdentities.provider, externalIdentities.externalUserId] }).returning();
+        if (!binding) {
+          throw localizedException(ConflictException, 'Этот Telegram ID уже привязан.', 'errors.telegramIdTaken');
+        }
+      }
+      return { telegramId };
     });
   }
 

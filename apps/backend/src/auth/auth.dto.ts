@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional, PartialType, PickType } from '@nestjs/swagger';
 import { IsBoolean, IsIn, IsString, Matches, MaxLength, MinLength, ValidateIf } from 'class-validator';
+import { telegramIdPattern } from './telegram-identity';
 import { type SessionUser, type UserRole, userRoles } from './auth.models';
 
 export class UserResponseDto implements SessionUser {
@@ -9,6 +10,18 @@ export class UserResponseDto implements SessionUser {
   @ApiProperty({ enum: userRoles }) role!: UserRole;
   @ApiProperty() isActive!: boolean;
   @ApiProperty() mustChangePassword!: boolean;
+}
+
+export class TelegramIdentityDto {
+  @ApiProperty({ type: String, nullable: true, pattern: telegramIdPattern.source })
+  @ValidateIf((_body, value) => value !== null)
+  @Matches(telegramIdPattern)
+  telegramId!: string | null;
+}
+
+export class AdminUserResponseDto extends UserResponseDto {
+  @ApiProperty({ type: String, nullable: true })
+  telegramId!: string | null;
 }
 
 export class LoginDto {
