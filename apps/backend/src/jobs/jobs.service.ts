@@ -1,11 +1,12 @@
 import { errorMessageCode } from '../common/api-message';
 import { Inject, Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import { and, asc, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, getTableColumns } from 'drizzle-orm';
 import { DATABASE, DatabaseConnection } from '../database/database.module';
-import { jobs, Job } from '../database/schema';
+import { jobs, Job, users } from '../database/schema';
 import { VideoDownloaderService } from '../downloader/video-downloader.service';
-import { resolveExternalUser } from '../users/resolve-external-user';
-import { defaultJobSource, type JobSource } from './job-source';
+import type { SessionUser } from '../auth/auth.models';
+import { accessDenied } from '../auth/session.guard';
+import { defaultJobSource } from './job-source';
 
 @Injectable()
 export class JobsService implements OnModuleInit, OnModuleDestroy {
@@ -28,20 +29,32 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
     if (this.timer) clearInterval(this.timer);
   }
 
-  async create(sourceUrl: string, source: JobSource = defaultJobSource, externalUserId?: string): Promise<Job> {
-    const { db } = this.connection;
-    const createdByUserId = await resolveExternalUser(db, source, externalUserId);
-    const [job] = await db.insert(jobs).values({ sourceUrl, source, createdByUserId }).returning();
+  async create(sourceUrl: string, user: SessionUser): Promise<Job> {
+    const [job] = await this.connection.db.insert(jobs).values({
+      sourceUrl,
+      source: defaultJobSource,
+      createdByUserId: user.id,
+    }).returning();
     return job;
   }
 
-  async list(): Promise<Job[]> {
-    return this.connection.db.select().from(jobs).orderBy(desc(jobs.createdAt));
+  async list(user: SessionUser) {
+    return this.selectWithCreator()
+      .where(user.role === 'admin' ? undefined : eq(jobs.createdByUserId, user.id))
+      .orderBy(desc(jobs.createdAt));
   }
 
-  async get(id: string): Promise<Job | undefined> {
-    const [job] = await this.connection.db.select().from(jobs).where(eq(jobs.id, id)).limit(1);
+  async get(id: string, user: SessionUser) {
+    const [job] = await this.selectWithCreator().where(eq(jobs.id, id)).limit(1);
+    if (job && user.role !== 'admin' && job.createdByUserId !== user.id) throw accessDenied();
     return job;
+  }
+
+  private selectWithCreator() {
+    return this.connection.db.select({
+      ...getTableColumns(jobs),
+      createdBy: { id: users.id, username: users.login, displayName: users.displayName },
+    }).from(jobs).leftJoin(users, eq(jobs.createdByUserId, users.id));
   }
 
   private async processNext(): Promise<void> {

@@ -1,3 +1,4 @@
+import type { UserRole } from '../auth/auth.models';
 import type { MessageParams } from '../common/api-message';
 import { defaultJobSource, type JobSource } from '../jobs/job-source';
 import {
@@ -20,11 +21,28 @@ export const checkStatus = pgEnum('check_status', ['PASS', 'FAIL', 'WARNING', 'E
 
 export const users = pgTable('users', {
   id: uuid('id').defaultRandom().primaryKey(),
+  login: text('login'),
+  passwordHash: text('password_hash'),
+  role: text('role').$type<UserRole>().default('user').notNull(),
+  mustChangePassword: boolean('must_change_password').default(false).notNull(),
   displayName: text('display_name').notNull(),
   isActive: boolean('is_active').default(true).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [uniqueIndex('users_login_unique').on(table.login)]);
+
+export const authInitialization = pgTable('auth_initialization', {
+  id: integer('id').primaryKey(),
 });
+
+export const sessions = pgTable('sessions', {
+  tokenHash: text('token_hash').primaryKey(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+}, (table) => [
+  index('sessions_user_idx').on(table.userId),
+  index('sessions_expiry_idx').on(table.expiresAt),
+]);
 
 export const externalIdentities = pgTable('external_identities', {
   id: uuid('id').defaultRandom().primaryKey(),

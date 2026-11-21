@@ -48,54 +48,41 @@ test('migrates legacy jobs and results and enforces user associations', { skip: 
       await apply('0007_users');
 
       const jobs = new JobsService({ db }, {});
-      const enqueued = [];
-      const analysis = new AnalysisService({ db }, [], {}, { enqueue: async (id) => enqueued.push(id) });
-      assert.equal((await jobs.get(oldJob)).createdByUserId, null);
-      const report = await analysis.report(oldRun);
+      const analysis = new AnalysisService({ db }, [], {}, {});
+      const admin = { id: randomUUID(), role: 'admin' };
+      const { rows: [unownedJob] } = await db.execute(`SELECT created_by_user_id FROM jobs WHERE id = '${oldJob}'`);
+      assert.equal(unownedJob.created_by_user_id, null);
+      const report = await analysis.report(oldRun, admin);
       assert.equal(report.run.requestedByUserId, null);
       assert.equal(report.run.videoId, oldJob);
       assert.equal(report.checks[0].details, 'legacy result');
 
-      const legacy = await jobs.create(sourceUrl);
-      assert.equal(legacy.source, 'web');
-      assert.equal(legacy.createdByUserId, null);
-
       const owner = randomUUID();
-      const anotherUser = randomUUID();
-      const inactive = randomUUID();
-      await db.execute(`INSERT INTO users (id, display_name, is_active)
-        VALUES ('${owner}', 'Owner', true), ('${anotherUser}', 'Other', true), ('${inactive}', 'Inactive', false)`);
+      await db.execute(`INSERT INTO users (id, display_name) VALUES ('${owner}', 'Owner')`);
       await db.execute(`INSERT INTO external_identities (user_id, provider, external_user_id)
-        VALUES ('${owner}', 'telegram', '001'), ('${owner}', 'mcp', 'owner'),
-          ('${anotherUser}', 'web', '001'), ('${inactive}', 'telegram', '002')`);
-
-      const job = await jobs.create(sourceUrl, 'telegram', '001');
-      assert.equal(job.createdByUserId, owner);
-      assert.equal((await jobs.create(sourceUrl, undefined, '001')).createdByUserId, anotherUser);
-      await assert.rejects(jobs.create(sourceUrl, 'telegram', '002'), { status: 403 });
-      await assert.rejects(jobs.create(sourceUrl, 'telegram', '003'), { status: 403 });
-
-      const file = __filename.replaceAll("'", "''");
-      await db.execute(`UPDATE jobs SET status = 'DOWNLOADED', local_path = '${file}' WHERE id IN ('${job.id}', '${oldJob}')`);
-      await assert.rejects(analysis.create(job.id, profile), { status: 403 });
-      await assert.rejects(analysis.create(job.id, profile, { source: 'web', externalUserId: '001' }), { status: 403 });
-      assert.deepEqual(enqueued, []);
-      const run = await analysis.create(job.id, profile, { source: 'telegram', externalUserId: '001' });
-      assert.equal(run.requestedByUserId, owner);
-      assert.deepEqual(enqueued, [run.id]);
-      const repeated = await analysis.create(job.id, profile, { source: 'mcp', externalUserId: 'owner' });
-      assert.equal(repeated.id, run.id);
-      const legacyRun = await analysis.create(oldJob, profile);
-      assert.equal(legacyRun.requestedByUserId, null);
+        VALUES ('${owner}', 'telegram', '001'), ('${owner}', 'mcp', '001')`);
 
       const rejectSql = (sql, code) => assert.rejects(db.transaction((tx) => tx.execute(sql)), (error) =>
         (error.cause ?? error).code === code);
       await rejectSql(`INSERT INTO external_identities (user_id, provider, external_user_id)
-        VALUES ('${anotherUser}', 'telegram', '001')`, '23505');
+        VALUES ('${owner}', 'telegram', '001')`, '23505');
       await rejectSql(`INSERT INTO external_identities (user_id, provider, external_user_id)
         VALUES ('${randomUUID()}', 'telegram', 'unassigned')`, '23503');
-      await rejectSql(`UPDATE jobs SET created_by_user_id = '${randomUUID()}' WHERE id = '${job.id}'`, '23503');
-      await rejectSql(`UPDATE analysis_runs SET requested_by_user_id = '${randomUUID()}' WHERE id = '${run.id}'`, '23503');
+      await rejectSql(`UPDATE jobs SET created_by_user_id = '${randomUUID()}' WHERE id = '${oldJob}'`, '23503');
+      await rejectSql(`UPDATE analysis_runs SET requested_by_user_id = '${randomUUID()}' WHERE id = '${oldRun}'`, '23503');
+
+      await apply('0008_auth');
+      assert.equal((await jobs.get(oldJob, admin)).createdByUserId, null);
+      assert.equal((await jobs.get(oldJob, admin)).createdBy, null);
+      assert.equal((await analysis.report(oldRun, admin)).checks[0].details, 'legacy result');
+      const { rows: [legacyUser] } = await db.execute(`SELECT login, role FROM users WHERE id = '${owner}'`);
+      assert.deepEqual(legacyUser, { login: null, role: 'user' });
+      await db.execute(`UPDATE jobs SET created_by_user_id = '${owner}' WHERE id = '${oldJob}'`);
+      assert.deepEqual((await jobs.get(oldJob, admin)).createdBy, {
+        id: owner,
+        username: null,
+        displayName: 'Owner',
+      });
 
       db.rollback();
     }).catch((error) => {

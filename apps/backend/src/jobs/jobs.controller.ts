@@ -1,13 +1,14 @@
 import { ApiMessageErrorDto, localizedException } from '../common/api-message';
-import { BadRequestException, Body, Controller, Get, HttpCode, HttpStatus, NotFoundException, Param, Post } from '@nestjs/common';
-import { ApiBadRequestResponse, ApiNotFoundResponse, ApiCreatedResponse, ApiOkResponse, ApiProperty, ApiForbiddenResponse, ApiTags } from '@nestjs/swagger';
+import { BadRequestException, Body, Controller, Get, HttpCode, HttpStatus, NotFoundException, Param, ParseUUIDPipe, Post } from '@nestjs/common';
+import { ApiBadRequestResponse, ApiNotFoundResponse, ApiCreatedResponse, ApiOkResponse, ApiProperty, ApiCookieAuth, ApiTags } from '@nestjs/swagger';
 import { IsString, IsUrl, MaxLength } from 'class-validator';
 import { Job } from '../database/schema';
-import { ExternalActorDto } from '../users/external-actor.dto';
-import { JobResponseDto } from './job-response.dto';
+import type { SessionUser } from '../auth/auth.models';
+import { CurrentUser } from '../auth/session.guard';
+import { JobDetailsDto, JobResponseDto } from './job-response.dto';
 import { JobsService } from './jobs.service';
 
-class CreateJobDto extends ExternalActorDto {
+class CreateJobDto {
   @ApiProperty({ example: 'https://example.com/video' })
   @IsString()
   @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
@@ -16,15 +17,15 @@ class CreateJobDto extends ExternalActorDto {
 }
 
 @ApiTags('jobs')
+@ApiCookieAuth()
 @Controller('api/jobs')
 export class JobsController {
   constructor(private readonly jobs: JobsService) {}
 
   @Post()
   @ApiBadRequestResponse({ type: ApiMessageErrorDto })
-  @ApiForbiddenResponse({ type: ApiMessageErrorDto })
   @ApiCreatedResponse({ description: 'Задание создано и помещено в очередь.', type: JobResponseDto })
-  create(@Body() dto: CreateJobDto): Promise<Job> {
+  create(@Body() dto: CreateJobDto, @CurrentUser() user: SessionUser): Promise<Job> {
     if (typeof dto?.sourceUrl !== 'string' || dto.sourceUrl.length > 2048) {
       throw localizedException(BadRequestException, 'Ссылка обязательна и должна быть не длиннее 2048 символов.', 'errors.urlLength', { limit: 2048 });
     }
@@ -34,21 +35,21 @@ export class JobsController {
     } catch {
       throw localizedException(BadRequestException, 'Укажите корректную ссылку HTTP или HTTPS.', 'errors.invalidUrl');
     }
-    return this.jobs.create(dto.sourceUrl, dto.source, dto.externalUserId);
+    return this.jobs.create(dto.sourceUrl, user);
   }
 
   @Get()
-  @ApiOkResponse({ description: 'Список заданий на загрузку.', type: JobResponseDto, isArray: true })
-  list(): Promise<Job[]> {
-    return this.jobs.list();
+  @ApiOkResponse({ description: 'Список заданий на загрузку.', type: JobDetailsDto, isArray: true })
+  list(@CurrentUser() user: SessionUser) {
+    return this.jobs.list(user);
   }
 
   @Get(':id')
   @ApiNotFoundResponse({ type: ApiMessageErrorDto })
   @HttpCode(HttpStatus.OK)
-  @ApiOkResponse({ type: JobResponseDto })
-  async get(@Param('id') id: string): Promise<Job> {
-    const job = await this.jobs.get(id);
+  @ApiOkResponse({ type: JobDetailsDto })
+  async get(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: SessionUser) {
+    const job = await this.jobs.get(id, user);
     if (!job) throw localizedException(NotFoundException, 'Задание не найдено.', 'errors.jobNotFound');
     return job;
   }

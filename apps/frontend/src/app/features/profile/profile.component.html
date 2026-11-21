@@ -1,0 +1,29 @@
+<main class="mx-auto max-w-4xl px-5 py-10 sm:px-8">
+  <h1 class="mb-6 text-3xl font-semibold text-slate-950">{{ 'auth.profile' | transloco }}</h1>
+  @if (session.user(); as user) {
+    <dl class="account-panel mb-5 max-w-lg text-sm">
+      <div><dt class="font-semibold">{{ 'auth.login' | transloco }}</dt><dd>{{ user.login }}</dd></div>
+      <div><dt class="font-semibold">{{ 'auth.displayName' | transloco }}</dt><dd>{{ user.displayName }}</dd></div>
+      <div><dt class="font-semibold">{{ 'auth.role' | transloco }}</dt><dd>{{ ('auth.role.' + user.role) | transloco }}</dd></div>
+    </dl>
+    <form class="account-panel max-w-lg" [formGroup]="form" (ngSubmit)="submit()">
+      <h2 class="text-lg font-semibold">{{ 'auth.changePassword' | transloco }}</h2>
+      @if (user.mustChangePassword) {
+        <p class="text-sm text-indigo-800">{{ 'errors.passwordChangeRequired' | transloco }}</p>
+      }
+      <label class="block text-sm font-medium">
+        {{ 'auth.currentPassword' | transloco }}
+        <input class="account-input" type="password" formControlName="currentPassword" autocomplete="current-password" maxlength="128" required />
+      </label>
+      <label class="block text-sm font-medium">
+        {{ 'auth.newPassword' | transloco }}
+        <input class="account-input" type="password" formControlName="password" autocomplete="new-password"
+          minlength="8" maxlength="128" aria-describedby="password-length" required />
+      </label>
+      <p class="text-sm text-slate-600" id="password-length">{{ 'auth.passwordLength' | transloco }}</p>
+      @if (error()) { <p class="text-sm text-rose-700" role="alert">{{ error() | transloco }}</p> }
+      @if (saved()) { <p class="text-sm text-emerald-700" role="status">{{ 'auth.passwordSaved' | transloco }}</p> }
+      <button class="account-button" type="submit" [disabled]="form.invalid || busy()">{{ 'auth.changePassword' | transloco }}</button>
+    </form>
+  }
+</main>

@@ -7,12 +7,12 @@ import { filter, map } from 'rxjs/operators';
 import { StrictHttpResponse } from '../../strict-http-response';
 import { RequestBuilder } from '../../request-builder';
 
-import { JobResponseDto } from '../../models/job-response-dto';
+import { JobDetailsDto } from '../../models/job-details-dto';
 
 export interface JobsControllerList$Params {
 }
 
-export function jobsControllerList(http: HttpClient, rootUrl: string, params?: JobsControllerList$Params, context?: HttpContext): Observable<StrictHttpResponse<Array<JobResponseDto>>> {
+export function jobsControllerList(http: HttpClient, rootUrl: string, params?: JobsControllerList$Params, context?: HttpContext): Observable<StrictHttpResponse<Array<JobDetailsDto>>> {
   const rb = new RequestBuilder(rootUrl, jobsControllerList.PATH, 'get');
   if (params) {
   }
@@ -22,7 +22,7 @@ export function jobsControllerList(http: HttpClient, rootUrl: string, params?: J
   ).pipe(
     filter((r: any): r is HttpResponse<any> => r instanceof HttpResponse),
     map((r: HttpResponse<any>) => {
-      return r as StrictHttpResponse<Array<JobResponseDto>>;
+      return r as StrictHttpResponse<Array<JobDetailsDto>>;
     })
   );
 }

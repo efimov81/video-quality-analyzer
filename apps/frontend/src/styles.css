@@ -1,1 +1,23 @@
 @import "tailwindcss";
+
+@layer components {
+  .nav-link {
+    @apply rounded-md px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50;
+  }
+
+  .nav-active {
+    @apply bg-indigo-100 text-indigo-800;
+  }
+
+  .account-panel {
+    @apply space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm;
+  }
+
+  .account-input {
+    @apply mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100;
+  }
+
+  .account-button {
+    @apply rounded-lg bg-indigo-600 px-4 py-2 font-medium text-white hover:bg-indigo-700 disabled:opacity-50;
+  }
+}

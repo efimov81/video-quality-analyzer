@@ -19,6 +19,7 @@ export class VideoCardComponent {
   readonly language = inject(LanguageService);
 
   readonly job = input.required<JobResponseDto>();
+  readonly ownerName = input<string | null>(null);
   readonly runs = input<AnalysisSummaryDto[]>([]);
 
   readonly selectedRunId = signal<string | null>(null);

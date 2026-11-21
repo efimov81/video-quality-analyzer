@@ -3,6 +3,7 @@ import { BadRequestException, ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { withMessageCode } from './common/api-message';
 import { AppModule } from './app.module';
+import { frontendOrigin, sessionCookieName } from './auth/session.guard';
 import { loadRootEnv } from './config/load-root-env';
 
 async function bootstrap(): Promise<void> {
@@ -20,9 +21,9 @@ async function bootstrap(): Promise<void> {
         : error;
     },
   }));
-  const swagger = SwaggerModule.createDocument(app, new DocumentBuilder().setTitle('Video Quality Analyzer API').setVersion('0.1.0').build());
+  const swagger = SwaggerModule.createDocument(app, new DocumentBuilder().setTitle('Video Quality Analyzer API').setVersion('0.1.0').addCookieAuth(sessionCookieName).build());
   SwaggerModule.setup('api/docs', app, swagger);
-  app.enableCors({ origin: process.env.FRONTEND_ORIGIN ?? 'http://localhost:4200' });
+  app.enableCors({ origin: frontendOrigin(), credentials: true });
   const port = Number(process.env.PORT ?? 3000);
 
   await app.listen(port);

@@ -17,3 +17,13 @@ export class JobResponseDto {
   @ApiProperty({ type: String, format: 'date-time', nullable: true }) startedAt!: string | null;
   @ApiProperty({ type: String, format: 'date-time', nullable: true }) completedAt!: string | null;
 }
+
+export class JobCreatorDto {
+  @ApiProperty({ format: 'uuid' }) id!: string;
+  @ApiProperty({ type: String, nullable: true }) username!: string | null;
+  @ApiProperty() displayName!: string;
+}
+
+export class JobDetailsDto extends JobResponseDto {
+  @ApiProperty({ type: JobCreatorDto, nullable: true }) createdBy!: JobCreatorDto | null;
+}

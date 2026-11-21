@@ -1,0 +1,18 @@
+<main class="mx-auto max-w-md px-5 py-12 sm:py-20">
+  <p class="mb-2 text-sm font-semibold uppercase tracking-wide text-indigo-700">{{ 'app.name' | transloco }}</p>
+  <h1 class="mb-5 text-3xl font-semibold text-slate-950">{{ 'auth.signIn' | transloco }}</h1>
+  <form class="account-panel" [formGroup]="form" (ngSubmit)="submit()">
+    <label class="block text-sm font-medium">
+      {{ 'auth.login' | transloco }}
+      <input class="account-input" formControlName="login" autocomplete="username" maxlength="64" required />
+    </label>
+    <label class="block text-sm font-medium">
+      {{ 'auth.password' | transloco }}
+      <input class="account-input" type="password" formControlName="password" autocomplete="current-password" maxlength="128" required />
+    </label>
+    @if (error() || session.restoreFailed()) {
+      <p class="text-sm text-rose-700" role="alert">{{ (error() || 'errors.restoreSession') | transloco }}</p>
+    }
+    <button class="account-button w-full" type="submit" [disabled]="form.invalid || busy()">{{ 'auth.signIn' | transloco }}</button>
+  </form>
+</main>

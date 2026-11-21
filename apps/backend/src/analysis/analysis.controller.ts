@@ -1,12 +1,13 @@
 import { ApiMessageErrorDto } from '../common/api-message';
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post } from '@nestjs/common';
-import { ApiBadRequestResponse, ApiForbiddenResponse, ApiNotFoundResponse, ApiServiceUnavailableResponse, ApiAcceptedResponse, ApiOkResponse, ApiProperty, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, ParseUUIDPipe, Post } from '@nestjs/common';
+import { ApiBadRequestResponse, ApiForbiddenResponse, ApiNotFoundResponse, ApiServiceUnavailableResponse, ApiAcceptedResponse, ApiOkResponse, ApiProperty, ApiCookieAuth, ApiTags } from '@nestjs/swagger';
 import { IsUUID } from 'class-validator';
-import { ExternalActorDto } from '../users/external-actor.dto';
+import type { SessionUser } from '../auth/auth.models';
+import { CurrentUser } from '../auth/session.guard';
 import { AnalysisReportDto, AnalysisRunResponseDto, AnalysisSummaryDto } from './analysis-response.dto';
 import { AnalysisService } from './analysis.service';
 
-class CreateAnalysisRunDto extends ExternalActorDto {
+class CreateAnalysisRunDto {
   @ApiProperty({ format: 'uuid', description: 'ID скачанного видео (job ID).' })
   @IsUUID('4')
   videoId!: string;
@@ -17,6 +18,7 @@ class CreateAnalysisRunDto extends ExternalActorDto {
 }
 
 @ApiTags('analysis')
+@ApiCookieAuth()
 @Controller('api/analysis-runs')
 export class AnalysisController {
   constructor(private readonly analysis: AnalysisService) {}
@@ -28,27 +30,27 @@ export class AnalysisController {
   @ApiServiceUnavailableResponse({ type: ApiMessageErrorDto })
   @HttpCode(HttpStatus.ACCEPTED)
   @ApiAcceptedResponse({ description: 'Анализ создан и поставлен в фоновую очередь.', type: AnalysisRunResponseDto })
-  create(@Body() body: CreateAnalysisRunDto) {
-    return this.analysis.create(body.videoId, body.profileId, body);
+  create(@Body() body: CreateAnalysisRunDto, @CurrentUser() user: SessionUser) {
+    return this.analysis.create(body.videoId, body.profileId, user);
   }
 
   @Get()
   @ApiOkResponse({ description: 'Список запусков анализа.', type: AnalysisSummaryDto, isArray: true })
-  list() {
-    return this.analysis.list();
+  list(@CurrentUser() user: SessionUser) {
+    return this.analysis.list(user);
   }
 
   @Get(':id/report')
   @ApiNotFoundResponse({ type: ApiMessageErrorDto })
   @ApiOkResponse({ description: 'Полный отчёт с результатами и таймкодами.', type: AnalysisReportDto })
-  report(@Param('id') id: string) {
-    return this.analysis.report(id);
+  report(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: SessionUser) {
+    return this.analysis.report(id, user);
   }
 
   @Get(':id')
   @ApiNotFoundResponse({ type: ApiMessageErrorDto })
   @ApiOkResponse({ description: 'Состояние запуска анализа.', type: AnalysisRunResponseDto })
-  get(@Param('id') id: string) {
-    return this.analysis.get(id);
+  get(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: SessionUser) {
+    return this.analysis.get(id, user);
   }
 }

@@ -1,5 +1,5 @@
 import { localizedException } from '../common/api-message';
-import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { existsSync, statSync } from 'node:fs';
 import { DATABASE, DatabaseConnection } from '../database/database.module';
@@ -8,9 +8,8 @@ import { AnalysisQueueService } from './analysis-queue.service';
 import { AnalysisEvidenceInput, AnalyzerInput, CheckResultInput, MediaInfo, ProfileSnapshot, VideoAnalyzer } from './analysis.models';
 import { MediaToolsService } from './media-tools.service';
 import { CheckType, criterionEnabled, isRecord, normalizeCriteria } from './profile-criteria';
-import { defaultJobSource } from '../jobs/job-source';
-import type { ExternalActorDto } from '../users/external-actor.dto';
-import { resolveExternalUser } from '../users/resolve-external-user';
+import type { SessionUser } from '../auth/auth.models';
+import { accessDenied } from '../auth/session.guard';
 import { VIDEO_ANALYZERS } from './analysis.constants';
 
 const CHECK_TYPES: CheckType[] = [
@@ -27,16 +26,13 @@ export class AnalysisService {
     private readonly queue: AnalysisQueueService,
   ) {}
 
-  async create(videoId: string, profileId: string, actor: ExternalActorDto = {}) {
+  async create(videoId: string, profileId: string, user: SessionUser) {
     const run = await this.connection.db.transaction(async (tx) => {
       await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${videoId}), hashtext(${profileId}))`);
       const [video] = await tx.select().from(jobs).where(eq(jobs.id, videoId)).limit(1);
+      if (video && user.role !== 'admin' && video.createdByUserId !== user.id) throw accessDenied();
       if (!video || video.status !== 'DOWNLOADED' || !video.localPath || !existsSync(video.localPath) || !statSync(video.localPath).isFile()) {
         throw localizedException(BadRequestException, 'Видео должно быть скачано и доступно на диске перед анализом.', 'errors.videoUnavailable');
-      }
-      const requestedByUserId = await resolveExternalUser(tx, actor.source ?? defaultJobSource, actor.externalUserId);
-      if (video.createdByUserId !== requestedByUserId) {
-        throw localizedException(ForbiddenException, 'Запуск анализа доступен владельцу задания.', 'errors.jobOwnerRequired');
       }
       const [profile] = await tx.select().from(acceptanceProfiles).where(eq(acceptanceProfiles.id, profileId)).limit(1);
       if (!profile) throw localizedException(NotFoundException, 'Профиль не найден.', 'errors.profileNotFound');
@@ -46,7 +42,12 @@ export class AnalysisService {
         eq(analysisRuns.profileId, profileId),
         inArray(analysisRuns.status, ['QUEUED', 'RUNNING']),
       )).limit(1);
-      if (existing) return existing;
+      if (existing) {
+        if (user.role !== 'admin' && existing.requestedByUserId !== user.id) {
+          throw localizedException(ConflictException, 'Анализ этого видео уже выполняется.', 'errors.analysisAlreadyRunning');
+        }
+        return existing;
+      }
 
       const profileSnapshot: ProfileSnapshot = {
         id: profile.id,
@@ -57,7 +58,7 @@ export class AnalysisService {
       const [created] = await tx.insert(analysisRuns).values({
         videoId,
         profileId,
-        requestedByUserId,
+        requestedByUserId: user.id,
         profileVersion: profile.version,
         profileSnapshot: { ...profileSnapshot },
         status: 'QUEUED',
@@ -76,24 +77,40 @@ export class AnalysisService {
     return run;
   }
 
-  async list() {
+  async list(user: SessionUser) {
     return this.connection.db.select({
       run: analysisRuns,
       videoTitle: jobs.title,
       videoPath: jobs.localPath,
     }).from(analysisRuns)
       .innerJoin(jobs, eq(analysisRuns.videoId, jobs.id))
+      .where(user.role === 'admin' ? undefined : and(
+        eq(analysisRuns.requestedByUserId, user.id),
+        eq(jobs.createdByUserId, user.id),
+      ))
       .orderBy(desc(analysisRuns.createdAt));
   }
 
-  async get(id: string) {
+  async get(id: string, user: SessionUser) {
+    const run = await this.findRun(id);
+    if (user.role === 'admin') return run;
+    if (run.requestedByUserId !== user.id) throw accessDenied();
+
+    const [video] = await this.connection.db.select({ id: jobs.id }).from(jobs)
+      .where(and(eq(jobs.id, run.videoId), eq(jobs.createdByUserId, user.id)))
+      .limit(1);
+    if (!video) throw accessDenied();
+    return run;
+  }
+
+  private async findRun(id: string) {
     const [run] = await this.connection.db.select().from(analysisRuns).where(eq(analysisRuns.id, id)).limit(1);
     if (!run) throw localizedException(NotFoundException, 'Запуск анализа не найден.', 'errors.runNotFound');
     return run;
   }
 
-  async report(id: string) {
-    const run = await this.get(id);
+  async report(id: string, user: SessionUser) {
+    const run = await this.get(id, user);
     const [video] = await this.connection.db.select().from(jobs).where(eq(jobs.id, run.videoId)).limit(1);
     const checks = await this.connection.db.select().from(analysisCheckResults)
       .where(eq(analysisCheckResults.analysisRunId, id));
@@ -108,7 +125,7 @@ export class AnalysisService {
   }
 
   async execute(runId: string): Promise<void> {
-    const run = await this.get(runId);
+    const run = await this.findRun(runId);
     if (run.status === 'COMPLETED') return;
     const [video] = await this.connection.db.select().from(jobs).where(eq(jobs.id, run.videoId)).limit(1);
     if (!video?.localPath || !existsSync(video.localPath) || !statSync(video.localPath).isFile()) {

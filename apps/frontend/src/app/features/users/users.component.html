@@ -1,0 +1,75 @@
+<main class="mx-auto max-w-4xl px-5 py-10 sm:px-8">
+  <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+    <h1 class="text-3xl font-semibold text-slate-950">{{ 'auth.users' | transloco }}</h1>
+    <button type="button" class="account-button" (click)="newUser()" [disabled]="busy() || !!loadError()">{{ 'auth.addUser' | transloco }}</button>
+  </div>
+  @if (loadError()) {
+    <p class="text-sm text-rose-700" role="alert">{{ loadError() | transloco }}</p>
+  }
+  <ul class="mb-6 divide-y divide-slate-200 rounded-xl border border-slate-200 bg-white">
+    @for (user of users(); track user.id) {
+      <li>
+        <button type="button" class="flex w-full flex-wrap items-center justify-between gap-2 px-4 py-3 text-left hover:bg-slate-50"
+          [class.bg-indigo-50]="selected()?.id === user.id" (click)="select(user)" [disabled]="busy()">
+          <span class="min-w-0 break-words font-semibold text-slate-900">{{ user.displayName }}
+            <span class="font-normal text-slate-600">{{ user.login || ('auth.noLogin' | transloco) }}</span>
+          </span>
+          <span class="text-sm text-slate-600">
+            {{ ('auth.role.' + user.role) | transloco }} · {{ (user.isActive ? 'auth.active' : 'auth.inactive') | transloco }}
+          </span>
+        </button>
+      </li>
+    }
+  </ul>
+
+  @if (selected() || creating()) {
+    <div class="grid gap-5 sm:grid-cols-2">
+      <form class="account-panel" [formGroup]="accountForm" (ngSubmit)="save()">
+        <h2 class="text-lg font-semibold">{{ (creating() ? 'auth.addUser' : 'auth.editUser') | transloco }}</h2>
+        @if (creating()) {
+          <label class="block text-sm font-medium">
+            {{ 'auth.login' | transloco }}
+            <input class="account-input" formControlName="login" autocomplete="off" maxlength="64" required />
+          </label>
+          <p class="text-sm text-slate-600">{{ 'auth.loginPattern' | transloco }}</p>
+          <label class="block text-sm font-medium">
+            {{ 'auth.temporaryPassword' | transloco }}
+            <input class="account-input" type="password" formControlName="password" autocomplete="new-password" minlength="8" maxlength="128" required />
+          </label>
+          <p class="text-sm text-slate-600">{{ 'auth.passwordLength' | transloco }}</p>
+        }
+        <label class="block text-sm font-medium">
+          {{ 'auth.displayName' | transloco }}
+          <input class="account-input" formControlName="displayName" maxlength="120" required />
+        </label>
+        <label class="block text-sm font-medium">
+          {{ 'auth.role' | transloco }}
+          <select class="account-input" formControlName="role">
+            <option value="user">{{ 'auth.role.user' | transloco }}</option>
+            <option value="admin">{{ 'auth.role.admin' | transloco }}</option>
+          </select>
+        </label>
+        @if (selected()) {
+          <label class="flex items-center gap-2 text-sm font-medium">
+            <input type="checkbox" formControlName="isActive" /> {{ 'auth.active' | transloco }}
+          </label>
+        }
+        <button type="submit" class="account-button" [disabled]="accountForm.invalid || busy()">{{ 'auth.save' | transloco }}</button>
+      </form>
+
+      @if (selected()?.login && selected()?.id !== session.user()?.id) {
+        <form class="account-panel self-start" [formGroup]="resetForm" (ngSubmit)="resetPassword()">
+          <h2 class="text-lg font-semibold">{{ 'auth.resetPassword' | transloco }}</h2>
+          <label class="block text-sm font-medium">
+            {{ 'auth.temporaryPassword' | transloco }}
+            <input class="account-input" type="password" formControlName="password" autocomplete="new-password" minlength="8" maxlength="128" required />
+          </label>
+          <p class="text-sm text-slate-600">{{ 'auth.passwordLength' | transloco }}</p>
+          <button type="submit" class="account-button" [disabled]="resetForm.invalid || busy()">{{ 'auth.resetPassword' | transloco }}</button>
+        </form>
+      }
+    </div>
+    @if (error()) { <p class="mt-3 text-sm text-rose-700" role="alert">{{ error() | transloco }}</p> }
+    @if (notice()) { <p class="mt-3 text-sm text-emerald-700" role="status">{{ notice() | transloco }}</p> }
+  }
+</main>

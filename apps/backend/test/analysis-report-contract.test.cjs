@@ -6,12 +6,41 @@ const { DocumentBuilder, SwaggerModule } = require('@nestjs/swagger');
 
 const { AnalysisController } = require('../dist/src/analysis/analysis.controller');
 const { AnalysisService } = require('../dist/src/analysis/analysis.service');
+const { JobsController } = require('../dist/src/jobs/jobs.controller');
+const { JobsService } = require('../dist/src/jobs/jobs.service');
 
 class ContractTestModule {}
 Module({
-  controllers: [AnalysisController],
-  providers: [{ provide: AnalysisService, useValue: {} }],
+  controllers: [AnalysisController, JobsController],
+  providers: [
+    { provide: AnalysisService, useValue: {} },
+    { provide: JobsService, useValue: {} },
+  ],
 })(ContractTestModule);
+
+test('documents the job creator on list and detail responses while preserving existing fields', async (t) => {
+  const app = await NestFactory.create(ContractTestModule, { logger: false });
+  t.after(() => app.close());
+  const { paths, components } = SwaggerModule.createDocument(app, new DocumentBuilder().build());
+  const { JobCreatorDto, JobDetailsDto, JobResponseDto } = components.schemas;
+  const responseSchema = (operation, status = '200') => operation.responses[status].content['application/json'].schema;
+  const detailRef = { $ref: '#/components/schemas/JobDetailsDto' };
+
+  assert.deepEqual(responseSchema(paths['/api/jobs'].get), { type: 'array', items: detailRef });
+  assert.deepEqual(responseSchema(paths['/api/jobs/{id}'].get), detailRef);
+  assert.deepEqual(responseSchema(paths['/api/jobs'].post, '201'), { $ref: '#/components/schemas/JobResponseDto' });
+  const { createdBy, ...existingProperties } = JobDetailsDto.properties;
+  assert.deepEqual(existingProperties, JobResponseDto.properties);
+  assert.deepEqual(createdBy, {
+    type: 'object', nullable: true, allOf: [{ $ref: '#/components/schemas/JobCreatorDto' }],
+  });
+  assert.ok(JobDetailsDto.required.includes('createdBy'));
+  assert.deepEqual(JobCreatorDto.properties, {
+    id: { type: 'string', format: 'uuid' },
+    username: { type: 'string', nullable: true },
+    displayName: { type: 'string' },
+  });
+});
 
 test('documents report checks, evidence, profile and video with their JSON types', async (t) => {
   const app = await NestFactory.create(ContractTestModule, { logger: false });
