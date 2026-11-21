@@ -9,6 +9,7 @@ export interface JobResponseDto {
   errorCode: string | null;
   id: string;
   localPath: string | null;
+  source: 'web' | 'telegram' | 'mcp';
   sourceUrl: string;
   startedAt: string | null;
   status: 'QUEUED' | 'DOWNLOADING' | 'DOWNLOADED' | 'FAILED';

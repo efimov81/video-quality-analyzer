@@ -1,4 +1,5 @@
 import type { MessageParams } from '../common/api-message';
+import { defaultJobSource, type JobSource } from '../jobs/job-source';
 import {
   boolean,
   doublePrecision,
@@ -20,6 +21,7 @@ export const checkStatus = pgEnum('check_status', ['PASS', 'FAIL', 'WARNING', 'E
 export const jobs = pgTable('jobs', {
   id: uuid('id').defaultRandom().primaryKey(),
   sourceUrl: text('source_url').notNull(),
+  source: text('source').$type<JobSource>().notNull().default(defaultJobSource),
   title: text('title'),
   description: text('description'),
   localPath: text('local_path'),

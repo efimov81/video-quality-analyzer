@@ -1,8 +1,9 @@
 import { ApiMessageErrorDto, localizedException } from '../common/api-message';
 import { BadRequestException, Body, Controller, Get, HttpCode, HttpStatus, NotFoundException, Param, Post } from '@nestjs/common';
-import { ApiBadRequestResponse, ApiNotFoundResponse, ApiCreatedResponse, ApiOkResponse, ApiProperty, ApiTags } from '@nestjs/swagger';
-import { IsString, IsUrl, MaxLength } from 'class-validator';
+import { ApiBadRequestResponse, ApiNotFoundResponse, ApiCreatedResponse, ApiOkResponse, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
+import { IsIn, IsString, IsUrl, MaxLength, ValidateIf } from 'class-validator';
 import { Job } from '../database/schema';
+import { defaultJobSource, jobSources, type JobSource } from './job-source';
 import { JobResponseDto } from './job-response.dto';
 import { JobsService } from './jobs.service';
 
@@ -12,6 +13,11 @@ class CreateJobDto {
   @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
   @MaxLength(2048)
   sourceUrl!: string;
+
+  @ApiPropertyOptional({ enum: jobSources, default: defaultJobSource })
+  @ValidateIf((_dto, source) => source !== undefined)
+  @IsIn(jobSources)
+  source?: JobSource;
 }
 
 @ApiTags('jobs')
@@ -32,7 +38,7 @@ export class JobsController {
     } catch {
       throw localizedException(BadRequestException, 'Укажите корректную ссылку HTTP или HTTPS.', 'errors.invalidUrl');
     }
-    return this.jobs.create(dto.sourceUrl);
+    return this.jobs.create(dto.sourceUrl, dto.source);
   }
 
   @Get()

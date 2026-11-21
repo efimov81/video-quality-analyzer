@@ -4,6 +4,7 @@ import { and, asc, desc, eq } from 'drizzle-orm';
 import { DATABASE, DatabaseConnection } from '../database/database.module';
 import { jobs, Job } from '../database/schema';
 import { VideoDownloaderService } from '../downloader/video-downloader.service';
+import { defaultJobSource, type JobSource } from './job-source';
 
 @Injectable()
 export class JobsService implements OnModuleInit, OnModuleDestroy {
@@ -26,8 +27,8 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
     if (this.timer) clearInterval(this.timer);
   }
 
-  async create(sourceUrl: string): Promise<Job> {
-    const [job] = await this.connection.db.insert(jobs).values({ sourceUrl }).returning();
+  async create(sourceUrl: string, source: JobSource = defaultJobSource): Promise<Job> {
+    const [job] = await this.connection.db.insert(jobs).values({ sourceUrl, source }).returning();
     return job;
   }
 
