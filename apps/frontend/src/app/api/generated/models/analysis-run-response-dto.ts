@@ -11,6 +11,7 @@ export interface AnalysisRunResponseDto {
   profileId: string;
   profileSnapshot: ProfileSnapshotDto;
   profileVersion: number;
+  requestedByUserId: string | null;
   startedAt: string | null;
   status: 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'FAILED';
 

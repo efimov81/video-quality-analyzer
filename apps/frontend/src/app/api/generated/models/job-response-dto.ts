@@ -4,6 +4,7 @@
 export interface JobResponseDto {
   completedAt: string | null;
   createdAt: string;
+  createdByUserId: string | null;
   description: string | null;
   error: string | null;
   errorCode: string | null;

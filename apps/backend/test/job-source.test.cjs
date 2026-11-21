@@ -39,13 +39,16 @@ test('accepts known job sources, defaults to web and rejects invalid values', as
 
   for (const source of [undefined, 'web', 'telegram', 'mcp']) {
     const body = source === undefined ? { sourceUrl } : { sourceUrl, source };
-    const expected = { sourceUrl, source: source ?? 'web' };
+    const expected = { sourceUrl, source: source ?? 'web', createdByUserId: null };
     assert.deepEqual(await create(body), expected);
     assert.deepEqual(inserted.at(-1), expected);
   }
 
   for (const source of [null, '', 'unknown', 'MCP', 1, ['web'], { source: 'web' }]) {
     await assert.rejects(create({ sourceUrl, source }), BadRequestException);
+  }
+  for (const externalUserId of [null, '', 1, ['123'], 'a'.repeat(256)]) {
+    await assert.rejects(create({ sourceUrl, externalUserId }), BadRequestException);
   }
   assert.equal(inserted.length, 4);
 

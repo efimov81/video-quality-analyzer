@@ -1,5 +1,5 @@
 import { localizedException } from '../common/api-message';
-import { BadRequestException, Inject, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { existsSync, statSync } from 'node:fs';
 import { DATABASE, DatabaseConnection } from '../database/database.module';
@@ -8,6 +8,9 @@ import { AnalysisQueueService } from './analysis-queue.service';
 import { AnalysisEvidenceInput, AnalyzerInput, CheckResultInput, MediaInfo, ProfileSnapshot, VideoAnalyzer } from './analysis.models';
 import { MediaToolsService } from './media-tools.service';
 import { CheckType, criterionEnabled, isRecord, normalizeCriteria } from './profile-criteria';
+import { defaultJobSource } from '../jobs/job-source';
+import type { ExternalActorDto } from '../users/external-actor.dto';
+import { resolveExternalUser } from '../users/resolve-external-user';
 import { VIDEO_ANALYZERS } from './analysis.constants';
 
 const CHECK_TYPES: CheckType[] = [
@@ -24,12 +27,16 @@ export class AnalysisService {
     private readonly queue: AnalysisQueueService,
   ) {}
 
-  async create(videoId: string, profileId: string) {
+  async create(videoId: string, profileId: string, actor: ExternalActorDto = {}) {
     const run = await this.connection.db.transaction(async (tx) => {
       await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${videoId}), hashtext(${profileId}))`);
       const [video] = await tx.select().from(jobs).where(eq(jobs.id, videoId)).limit(1);
       if (!video || video.status !== 'DOWNLOADED' || !video.localPath || !existsSync(video.localPath) || !statSync(video.localPath).isFile()) {
         throw localizedException(BadRequestException, 'Видео должно быть скачано и доступно на диске перед анализом.', 'errors.videoUnavailable');
+      }
+      const requestedByUserId = await resolveExternalUser(tx, actor.source ?? defaultJobSource, actor.externalUserId);
+      if (video.createdByUserId !== requestedByUserId) {
+        throw localizedException(ForbiddenException, 'Запуск анализа доступен владельцу задания.', 'errors.jobOwnerRequired');
       }
       const [profile] = await tx.select().from(acceptanceProfiles).where(eq(acceptanceProfiles.id, profileId)).limit(1);
       if (!profile) throw localizedException(NotFoundException, 'Профиль не найден.', 'errors.profileNotFound');
@@ -50,6 +57,7 @@ export class AnalysisService {
       const [created] = await tx.insert(analysisRuns).values({
         videoId,
         profileId,
+        requestedByUserId,
         profileVersion: profile.version,
         profileSnapshot: { ...profileSnapshot },
         status: 'QUEUED',

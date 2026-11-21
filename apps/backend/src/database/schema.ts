@@ -18,10 +18,29 @@ export const jobStatus = pgEnum('job_status', ['QUEUED', 'DOWNLOADING', 'DOWNLOA
 export const analysisRunStatus = pgEnum('analysis_run_status', ['QUEUED', 'RUNNING', 'COMPLETED', 'FAILED']);
 export const checkStatus = pgEnum('check_status', ['PASS', 'FAIL', 'WARNING', 'ERROR', 'SKIPPED']);
 
+export const users = pgTable('users', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  displayName: text('display_name').notNull(),
+  isActive: boolean('is_active').default(true).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const externalIdentities = pgTable('external_identities', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').notNull().references(() => users.id),
+  provider: text('provider').notNull(),
+  externalUserId: text('external_user_id').notNull(),
+}, (table) => [
+  uniqueIndex('external_identities_provider_user_unique').on(table.provider, table.externalUserId),
+  index('external_identities_user_idx').on(table.userId),
+]);
+
 export const jobs = pgTable('jobs', {
   id: uuid('id').defaultRandom().primaryKey(),
   sourceUrl: text('source_url').notNull(),
   source: text('source').$type<JobSource>().notNull().default(defaultJobSource),
+  createdByUserId: uuid('created_by_user_id').references(() => users.id),
   title: text('title'),
   description: text('description'),
   localPath: text('local_path'),
@@ -31,7 +50,7 @@ export const jobs = pgTable('jobs', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   startedAt: timestamp('started_at', { withTimezone: true }),
   completedAt: timestamp('completed_at', { withTimezone: true }),
-});
+}, (table) => [index('jobs_created_by_user_idx').on(table.createdByUserId)]);
 
 export const acceptanceProfiles = pgTable('acceptance_profiles', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -59,6 +78,7 @@ export const analysisRuns = pgTable('analysis_runs', {
   id: uuid('id').defaultRandom().primaryKey(),
   videoId: uuid('video_id').notNull().references(() => jobs.id, { onDelete: 'restrict' }),
   profileId: uuid('profile_id').notNull().references(() => acceptanceProfiles.id, { onDelete: 'restrict' }),
+  requestedByUserId: uuid('requested_by_user_id').references(() => users.id),
   profileVersion: integer('profile_version').notNull(),
   profileSnapshot: jsonb('profile_snapshot').notNull().$type<Record<string, unknown>>(),
   status: analysisRunStatus('status').notNull().default('QUEUED'),
@@ -69,6 +89,7 @@ export const analysisRuns = pgTable('analysis_runs', {
   completedAt: timestamp('completed_at', { withTimezone: true }),
 }, (table) => [
   index('analysis_runs_video_created_idx').on(table.videoId, table.createdAt),
+  index('analysis_runs_requested_by_user_idx').on(table.requestedByUserId),
   index('analysis_runs_status_idx').on(table.status),
 ]);
 

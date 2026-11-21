@@ -83,6 +83,8 @@
   "errors.criterionRatio": "{{checkType}}.{{key}} должен быть в диапазоне от 0 до 1.",
   "errors.downloadFailed": "Не удалось скачать видео.",
   "errors.downloaderMissing": "Установите yt-dlp на сервере и добавьте его в PATH.",
+  "errors.externalUserUnavailable": "Активный пользователь не найден.",
+  "errors.jobOwnerRequired": "Запуск анализа доступен владельцу задания.",
   "errors.invalidUrl": "Укажите корректную ссылку HTTP или HTTPS.",
   "errors.jobNotFound": "Задание на скачивание не найдено.",
   "errors.loadJobs": "Не удалось загрузить список заданий.",

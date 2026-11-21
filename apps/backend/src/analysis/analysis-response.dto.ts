@@ -20,6 +20,7 @@ export class AnalysisRunResponseDto {
   @ApiProperty({ format: 'uuid' }) id!: string;
   @ApiProperty({ format: 'uuid', description: 'ID скачанного видео (job ID).' }) videoId!: string;
   @ApiProperty({ format: 'uuid' }) profileId!: string;
+  @ApiProperty({ type: String, format: 'uuid', nullable: true }) requestedByUserId!: string | null;
   @ApiProperty() profileVersion!: number;
   @ApiProperty({ type: ProfileSnapshotDto }) profileSnapshot!: ProfileSnapshotDto;
   @ApiProperty({ enum: analysisRunStatus.enumValues }) status!: AnalysisRun['status'];
