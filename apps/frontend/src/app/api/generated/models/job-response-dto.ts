@@ -6,6 +6,7 @@ export interface JobResponseDto {
   createdAt: string;
   description: string | null;
   error: string | null;
+  errorCode: string | null;
   id: string;
   localPath: string | null;
   sourceUrl: string;

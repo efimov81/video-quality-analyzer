@@ -1,5 +1,7 @@
+import { TranslocoPipe } from '@jsverse/transloco';
+import { LanguageService } from '../../core/i18n/language.service';
 
-import { ChangeDetectionStrategy, Component, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, input, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 
 import { JobResponseDto } from '../../api/generated/models/job-response-dto';
@@ -9,11 +11,13 @@ import { AnalysisReportComponent } from '../analysis-report/analysis-report.comp
 @Component({
   selector: 'vqa-video-card',
   standalone: true,
-  imports: [DatePipe, AnalysisReportComponent],
+  imports: [TranslocoPipe, DatePipe, AnalysisReportComponent],
   templateUrl: './video-card.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class VideoCardComponent {
+  readonly language = inject(LanguageService);
+
   readonly job = input.required<JobResponseDto>();
   readonly runs = input<AnalysisSummaryDto[]>([]);
 

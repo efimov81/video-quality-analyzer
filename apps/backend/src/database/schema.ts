@@ -1,3 +1,4 @@
+import type { MessageParams } from '../common/api-message';
 import {
   boolean,
   doublePrecision,
@@ -24,6 +25,7 @@ export const jobs = pgTable('jobs', {
   localPath: text('local_path'),
   status: jobStatus('status').default('QUEUED').notNull(),
   error: text('error'),
+  errorCode: text('error_code'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   startedAt: timestamp('started_at', { withTimezone: true }),
   completedAt: timestamp('completed_at', { withTimezone: true }),
@@ -59,6 +61,7 @@ export const analysisRuns = pgTable('analysis_runs', {
   profileSnapshot: jsonb('profile_snapshot').notNull().$type<Record<string, unknown>>(),
   status: analysisRunStatus('status').notNull().default('QUEUED'),
   error: text('error'),
+  errorCode: text('error_code'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   startedAt: timestamp('started_at', { withTimezone: true }),
   completedAt: timestamp('completed_at', { withTimezone: true }),
@@ -75,6 +78,8 @@ export const analysisCheckResults = pgTable('analysis_check_results', {
   measuredValue: jsonb('measured_value'),
   expectedValue: jsonb('expected_value'),
   details: text('details').notNull(),
+  messageCode: text('message_code'),
+  messageParams: jsonb('message_params').$type<MessageParams>(),
   analyzerVersion: text('analyzer_version').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
@@ -89,6 +94,8 @@ export const analysisEvidence = pgTable('analysis_evidence', {
   problemType: text('problem_type').notNull(),
   measuredValue: jsonb('measured_value'),
   details: text('details').notNull(),
+  messageCode: text('message_code'),
+  messageParams: jsonb('message_params').$type<MessageParams>(),
 }, (table) => [index('analysis_evidence_result_timestamp_idx').on(table.analysisCheckResultId, table.timestamp)]);
 
 export type Job = typeof jobs.$inferSelect;

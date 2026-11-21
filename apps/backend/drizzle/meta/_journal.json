@@ -36,6 +36,13 @@
       "when": 1795099348698,
       "tag": "0004_backfill-profile-aspect-ratio",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1795200444735,
+      "tag": "0005_localized-messages",
+      "breakpoints": true
     }
   ]
 }

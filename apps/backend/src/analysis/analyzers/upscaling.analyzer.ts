@@ -14,6 +14,8 @@ export class UpscalingAnalyzer implements VideoAnalyzer {
       status: 'WARNING',
       measuredValue: { width: video.width ?? null, height: video.height ?? null, codec: video.codec_name ?? null },
       expectedValue: null,
+      messageCode: 'analysis.upscaling_experimental.unsupported',
+      messageParams: {},
       details: 'Надёжный валидированный детектор upscaling не реализован. Разрешение и blur metric сами по себе не доказывают искусственное увеличение.',
       analyzerVersion: 'unsupported/1.0',
     }];

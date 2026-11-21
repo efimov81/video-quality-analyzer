@@ -14,7 +14,7 @@ export class MetadataAnalyzer implements VideoAnalyzer {
     const streams = input.media.streams.filter((stream) => stream.codec_type === 'video' && stream.disposition?.attached_pic !== 1);
     const video = streams[0];
     if (!video) {
-      return [this.result('FAIL', null, { requiredVideoStream: true }, 'Видеопоток отсутствует.')];
+      return [this.result('FAIL', null, { requiredVideoStream: true }, 'Видеопоток отсутствует.', 'analysis.resolution.noVideo')];
     }
 
     const width = video.width ?? 0;
@@ -69,11 +69,14 @@ export class MetadataAnalyzer implements VideoAnalyzer {
       : status === 'FAIL'
         ? 'Разрешение или длительность не соответствуют профилю.'
         : 'Разрешение измерено, но часть метаданных для критерия отсутствует.';
-    return [this.result(status, measured, expected, details)];
+    const messageCode = status === 'PASS' ? 'analysis.resolution.pass'
+      : status === 'FAIL' ? 'analysis.resolution.outsideLimits'
+        : 'analysis.resolution.incompleteMetadata';
+    return [this.result(status, measured, expected, details, messageCode)];
   }
 
-  private result(status: CheckResultInput['status'], measuredValue: unknown, expectedValue: unknown, details: string): CheckResultInput {
-    return { checkType: 'resolution', status, measuredValue, expectedValue, details, analyzerVersion: VERSION };
+  private result(status: CheckResultInput['status'], measuredValue: unknown, expectedValue: unknown, details: string, messageCode: string): CheckResultInput {
+    return { checkType: 'resolution', status, measuredValue, expectedValue, details, messageCode, messageParams: {}, analyzerVersion: VERSION };
   }
 
   private toNumber(value: string | undefined): number | null {

@@ -54,15 +54,21 @@ test('detects known audio and visual conditions in FFmpeg media fixtures', async
   const silentInput = await makeInput(noAudio);
   const noAudioResult = (await new AudioPresenceAnalyzer().analyze(silentInput))[0];
   assert.equal(noAudioResult.status, 'FAIL');
+  assert.equal(noAudioResult.messageCode, 'analysis.audio_presence.requiredMissing');
 
   const emptyInput = await makeInput(silentAudio);
   assert.equal((await new AudioPresenceAnalyzer().analyze(emptyInput))[0].status, 'PASS');
   const emptySignalResult = (await new AudioSignalAnalyzer(tools).analyze(emptyInput)).find((result) => result.checkType === 'audio_silence');
   assert.equal(emptySignalResult.status, 'FAIL');
+  assert.equal(emptySignalResult.messageCode, 'analysis.audio_silence.zeroSignal');
 
   const cutsResult = (await new SceneCutsAnalyzer(tools).analyze(await makeInput(sceneChanges)))[0];
   assert.ok(cutsResult.measuredValue.cutCount >= 2);
   assert.equal(cutsResult.status, 'FAIL');
+  assert.equal(cutsResult.messageCode, 'analysis.scene_cuts.shortIntervals');
+  assert.equal(cutsResult.messageParams.count, cutsResult.evidence.length);
+  assert.equal(cutsResult.evidence[0].messageCode, 'analysis.evidence.frequent_scene_cut');
+  assert.equal(cutsResult.evidence[0].messageParams.limit, 5);
 
   const blackResult = (await new VisualAnalyzer(tools).analyze(await makeInput(blackFrames))).find((result) => result.checkType === 'black_screens');
   assert.equal(blackResult.status, 'FAIL');

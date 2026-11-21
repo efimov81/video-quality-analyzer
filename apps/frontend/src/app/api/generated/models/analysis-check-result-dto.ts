@@ -16,5 +16,9 @@ export interface AnalysisCheckResultDto {
   measuredValue: ({
 [key: string]: any;
 } | Array<any> | number | boolean | string | null);
+  messageCode: string | null;
+  messageParams: ({
+[key: string]: (string | null | number | boolean);
+} | null);
   status: 'PASS' | 'FAIL' | 'WARNING' | 'ERROR' | 'SKIPPED';
 }

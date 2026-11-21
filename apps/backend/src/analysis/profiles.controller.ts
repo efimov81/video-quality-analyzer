@@ -1,5 +1,6 @@
+import { ApiMessageErrorDto } from '../common/api-message';
 import { Body, Controller, Get, Param, Post, Put } from '@nestjs/common';
-import { ApiCreatedResponse, ApiOkResponse, ApiProperty, ApiTags } from '@nestjs/swagger';
+import { ApiBadRequestResponse, ApiNotFoundResponse, ApiCreatedResponse, ApiOkResponse, ApiProperty, ApiTags } from '@nestjs/swagger';
 import { IsBoolean, IsObject, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 import { ProfilesService, SaveProfileInput } from './profiles.service';
 
@@ -60,24 +61,29 @@ export class ProfilesController {
   }
 
   @Post()
+  @ApiBadRequestResponse({ type: ApiMessageErrorDto })
   @ApiCreatedResponse({ description: 'Профиль создан вместе с первой версией.', type: ProfileResponseDto })
   create(@Body() body: SaveProfileDto) {
     return this.profiles.create(body);
   }
 
   @Get(':id/versions')
+  @ApiNotFoundResponse({ type: ApiMessageErrorDto })
   @ApiOkResponse({ description: 'Версии критериев профиля.', type: ProfileVersionResponseDto, isArray: true })
   versions(@Param('id') id: string) {
     return this.profiles.versions(id);
   }
 
   @Get(':id')
+  @ApiNotFoundResponse({ type: ApiMessageErrorDto })
   @ApiOkResponse({ description: 'Профиль требований.', type: ProfileResponseDto })
   get(@Param('id') id: string) {
     return this.profiles.get(id);
   }
 
   @Put(':id')
+  @ApiBadRequestResponse({ type: ApiMessageErrorDto })
+  @ApiNotFoundResponse({ type: ApiMessageErrorDto })
   @ApiOkResponse({ description: 'Профиль обновлён созданием новой версии.', type: ProfileResponseDto })
   update(@Param('id') id: string, @Body() body: SaveProfileDto) {
     return this.profiles.update(id, body);

@@ -21,11 +21,15 @@ export class AudioSignalAnalyzer implements VideoAnalyzer {
         status: 'SKIPPED',
         measuredValue: null,
         expectedValue: null,
+        messageCode: 'analysis.audio.noStream',
+        messageParams: {},
         details: 'Проверка пропущена: аудиопоток отсутствует.',
         analyzerVersion: VERSION,
       }));
       skipped.push({
         checkType: 'speech_vad', status: 'WARNING', measuredValue: null, expectedValue: null,
+        messageCode: 'analysis.speech_vad.unsupported',
+        messageParams: {},
         details: 'VAD не поддерживается: достоверная проверка речи без специализированной валидированной модели не выполняется.',
         analyzerVersion: 'unsupported/1.0',
       });
@@ -55,9 +59,18 @@ export class AudioSignalAnalyzer implements VideoAnalyzer {
       status: silenceStatus,
       measuredValue: { rmsDb, durationSec: duration, silenceThresholdDb: thresholdDb, totalDetectedSilenceSec: silenceDuration, silenceRatio: duration ? Number((silenceDuration / duration).toFixed(4)) : null, longestSilenceSec: longestSilence, segments: intervals },
       expectedValue: { thresholdDb, minSegmentSec: minimumSilence, maxSegmentSec: maxSilence, zeroSignal: false },
+      messageCode: zeroSignal ? 'analysis.audio_silence.zeroSignal' : silenceStatus === 'FAIL' ? 'analysis.audio_silence.tooLong' : unknownSignal ? 'analysis.audio_silence.rmsUnavailable' : 'analysis.audio_silence.withinLimit',
+      messageParams: { duration: longestSilence, limit: maxSilence },
       details: zeroSignal ? 'Аудиопоток декодируется, но содержит нулевой сигнал на всей длительности.' : silenceStatus === 'FAIL' ? 'Обнаружена чрезмерно длинная тишина.' : unknownSignal ? 'Не удалось вычислить RMS; пороговая тишина измерена, но наличие сигнала требует ручной проверки.' : 'Проверка пороговой тишины завершена.',
       analyzerVersion: VERSION,
-      evidence: intervals.map((segment) => ({ timestamp: segment.start, problemType: 'silence', measuredValue: segment, details: `Тишина длится ${segment.duration.toFixed(2)} с.` })),
+      evidence: intervals.map((segment) => ({
+        timestamp: segment.start,
+        problemType: 'silence',
+        measuredValue: segment,
+        messageCode: 'analysis.evidence.silence',
+        messageParams: { duration: segment.duration },
+        details: `Тишина длится ${segment.duration.toFixed(2)} с.`,
+      })),
     };
 
     const loudnessStatus = loudness === null ? 'WARNING' : this.loudnessStatus(loudness, input);
@@ -70,6 +83,8 @@ export class AudioSignalAnalyzer implements VideoAnalyzer {
         maxIntegratedLufs: criterionNumber(input.criteria, 'audio_loudness', 'maxIntegratedLufs'),
         maxTruePeakDbtp: criterionNumber(input.criteria, 'audio_loudness', 'maxTruePeakDbtp'),
       },
+      messageCode: loudness ? (loudnessStatus === 'PASS' ? 'analysis.audio_loudness.withinLimits' : 'analysis.audio_loudness.outsideLimits') : 'analysis.audio_loudness.unavailable',
+      messageParams: {},
       details: loudness ? loudnessStatus === 'PASS' ? 'Громкость и true peak находятся в пределах профиля.' : 'Громкость или true peak выходят за пределы профиля.' : 'FFmpeg не смог вычислить интегральную громкость.',
       analyzerVersion: 'ffmpeg-loudnorm/1.0',
     };
@@ -82,6 +97,8 @@ export class AudioSignalAnalyzer implements VideoAnalyzer {
         status: 'WARNING',
         measuredValue: { rmsDb, peakDb, noiseFloorDb, zeroCrossingsPerSample: this.parseAstats(output.stderr, 'Zero crossings rate') },
         expectedValue: null,
+        messageCode: 'analysis.background_noise.acousticsOnly',
+        messageParams: {},
         details: 'Измерены акустические характеристики. SNR и помехи, мешающие речи, не оцениваются без достоверного VAD; наличие шума не трактуется как брак.',
         analyzerVersion: 'ffmpeg-astats-proxy/1.0',
       },
@@ -90,6 +107,8 @@ export class AudioSignalAnalyzer implements VideoAnalyzer {
         status: 'WARNING',
         measuredValue: null,
         expectedValue: null,
+        messageCode: 'analysis.speech_vad.unsupported',
+        messageParams: {},
         details: 'VAD не поддерживается: речь не классифицируется по одному уровню сигнала или шумовой метрике.',
         analyzerVersion: 'unsupported/1.0',
       },

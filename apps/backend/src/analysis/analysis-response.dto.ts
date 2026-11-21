@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { AnalysisCheckResult, AnalysisRun, analysisRunStatus, checkStatus } from '../database/schema';
 import { JobResponseDto } from '../jobs/job-response.dto';
+import { messageParamValues, type MessageParams } from '../common/api-message';
 
 class ProfileSnapshotDto {
   @ApiProperty({ format: 'uuid' }) id!: string;
@@ -23,6 +24,7 @@ export class AnalysisRunResponseDto {
   @ApiProperty({ type: ProfileSnapshotDto }) profileSnapshot!: ProfileSnapshotDto;
   @ApiProperty({ enum: analysisRunStatus.enumValues }) status!: AnalysisRun['status'];
   @ApiProperty({ type: String, nullable: true }) error!: string | null;
+  @ApiProperty({ type: String, nullable: true }) errorCode!: string | null;
   @ApiProperty({ type: String, format: 'date-time' }) createdAt!: string;
   @ApiProperty({ type: String, format: 'date-time', nullable: true }) startedAt!: string | null;
   @ApiProperty({ type: String, format: 'date-time', nullable: true }) completedAt!: string | null;
@@ -45,7 +47,20 @@ const metricValueSchema = {
   ],
 } satisfies Parameters<typeof ApiProperty>[0];
 
-class AnalysisEvidenceDto {
+class AnalysisMessageDto {
+  @ApiProperty({ type: String, nullable: true })
+  messageCode!: string | null;
+
+  @ApiProperty({
+    anyOf: [
+      { type: 'object', additionalProperties: messageParamValues },
+      { type: 'string', nullable: true, enum: [null] },
+    ],
+  })
+  messageParams!: MessageParams | null;
+}
+
+class AnalysisEvidenceDto extends AnalysisMessageDto {
   @ApiProperty({ format: 'uuid' }) id!: string;
   @ApiProperty({ format: 'uuid' }) analysisCheckResultId!: string;
   @ApiProperty({ description: 'Таймкод в секундах.' }) timestamp!: number;
@@ -54,7 +69,7 @@ class AnalysisEvidenceDto {
   @ApiProperty() details!: string;
 }
 
-class AnalysisCheckResultDto {
+class AnalysisCheckResultDto extends AnalysisMessageDto {
   @ApiProperty({ format: 'uuid' }) id!: string;
   @ApiProperty({ format: 'uuid' }) analysisRunId!: string;
   @ApiProperty() checkType!: string;

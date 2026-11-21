@@ -25,6 +25,9 @@ test('documents report checks, evidence, profile and video with their JSON types
   const response = document.paths['/api/analysis-runs/{id}/report'].get.responses['200'];
   assert.deepEqual(response.content['application/json'].schema, ref('AnalysisReportDto'));
 
+  const notFound = document.paths['/api/analysis-runs/{id}/report'].get.responses['404'];
+  assert.deepEqual(notFound.content['application/json'].schema, ref('ApiMessageErrorDto'));
+
   const report = schemas.AnalysisReportDto.properties;
   assert.deepEqual(report.checks, arrayOf('AnalysisCheckResultDto'));
   assert.deepEqual(report.video, ref('JobResponseDto'));
@@ -35,6 +38,14 @@ test('documents report checks, evidence, profile and video with their JSON types
   const evidence = schemas.AnalysisEvidenceDto;
   assert.deepEqual(checks.properties.evidence, arrayOf('AnalysisEvidenceDto'));
   assert.ok(checks.required.includes('evidence'));
+  for (const schema of [checks, evidence]) {
+    assert.deepEqual(schema.properties.messageCode, { type: 'string', nullable: true });
+    assert.deepEqual(schema.properties.messageParams.anyOf[1], { type: 'string', nullable: true, enum: [null] });
+    assert.deepEqual(schema.properties.messageParams.anyOf[0].additionalProperties.anyOf.map(({ type }) => type),
+      ['string', 'number', 'boolean']);
+    assert.ok(schema.required.includes('messageCode'));
+    assert.ok(schema.required.includes('messageParams'));
+  }
   assert.equal(evidence.properties.timestamp.type, 'number');
   assert.equal(evidence.properties.problemType.type, 'string');
   assert.equal(schemas.JobResponseDto.properties.title.nullable, true);

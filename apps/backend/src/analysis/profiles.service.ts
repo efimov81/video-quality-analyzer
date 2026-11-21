@@ -1,3 +1,4 @@
+import { localizedException } from '../common/api-message';
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { asc, eq } from 'drizzle-orm';
 import { DATABASE, DatabaseConnection } from '../database/database.module';
@@ -21,7 +22,7 @@ export class ProfilesService {
 
   async get(id: string) {
     const [profile] = await this.connection.db.select().from(acceptanceProfiles).where(eq(acceptanceProfiles.id, id)).limit(1);
-    if (!profile) throw new NotFoundException('Профиль не найден.');
+    if (!profile) throw localizedException(NotFoundException, 'Профиль не найден.', 'errors.profileNotFound');
     return profile;
   }
 
@@ -52,7 +53,7 @@ export class ProfilesService {
     const criteria = normalizeCriteria(input.criteria);
     return this.connection.db.transaction(async (tx) => {
       const [current] = await tx.select().from(acceptanceProfiles).where(eq(acceptanceProfiles.id, id)).for('update').limit(1);
-      if (!current) throw new NotFoundException('Профиль не найден.');
+      if (!current) throw localizedException(NotFoundException, 'Профиль не найден.', 'errors.profileNotFound');
       const [profile] = await tx.update(acceptanceProfiles).set({
         name: input.name.trim(),
         description: input.description?.trim() ?? '',
@@ -81,7 +82,7 @@ export class ProfilesService {
 
   private validateName(name: string): void {
     if (typeof name !== 'string' || !name.trim() || name.trim().length > 120) {
-      throw new BadRequestException('Название профиля обязательно и не должно превышать 120 символов.');
+      throw localizedException(BadRequestException, 'Название профиля обязательно и не должно превышать 120 символов.', 'errors.profileName', { limit: 120 });
     }
   }
 }

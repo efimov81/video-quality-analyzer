@@ -23,6 +23,8 @@ export class AudioPresenceAnalyzer implements VideoAnalyzer {
       status,
       measuredValue: { audioStreamCount: streams.length, streams: measuredValue },
       expectedValue: { required },
+      messageCode: streams.length ? 'analysis.audio_presence.found' : required ? 'analysis.audio_presence.requiredMissing' : 'analysis.audio_presence.optionalMissing',
+      messageParams: { count: streams.length },
       details: streams.length ? `Найдено аудиопотоков: ${streams.length}.` : required ? 'Обязательный аудиопоток отсутствует.' : 'Аудиопоток отсутствует, но он не обязателен в профиле.',
       analyzerVersion: 'ffprobe-audio-stream/1.0',
     }];

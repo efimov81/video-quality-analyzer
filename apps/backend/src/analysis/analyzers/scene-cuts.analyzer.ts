@@ -28,6 +28,8 @@ export class SceneCutsAnalyzer implements VideoAnalyzer {
       timestamp: interval.to,
       problemType: 'frequent_scene_cut',
       measuredValue: interval,
+      messageCode: 'analysis.evidence.frequent_scene_cut',
+      messageParams: { duration: interval.seconds, limit: minInterval },
       details: `Между сменами сцен ${interval.seconds.toFixed(2)} с; профиль требует не менее ${minInterval} с.`,
     }));
     return [{
@@ -35,6 +37,8 @@ export class SceneCutsAnalyzer implements VideoAnalyzer {
       status,
       measuredValue: { cutCount: cuts.length, candidateCount: candidates.length, timestamps: cuts.map((cut) => cut.timestamp), intervals, frequentCutCount: frequent.length, shortestIntervals: [...intervals].sort((a, b) => a.seconds - b.seconds).slice(0, 10), threshold, dedupWindowSec: dedupWindow },
       expectedValue: { minIntervalSec: minInterval, maxFrequentCuts, threshold, dedupWindowSec: dedupWindow },
+      messageCode: frequent.length ? 'analysis.scene_cuts.shortIntervals' : 'analysis.scene_cuts.detected',
+      messageParams: { count: frequent.length || cuts.length },
       details: frequent.length ? `Обнаружено частых интервалов между склейками: ${frequent.length}. Scene detector не гарантирует обнаружение всех монтажных склеек.` : `Обнаружено смен сцен: ${cuts.length}. Scene detector не гарантирует обнаружение всех монтажных склеек.`,
       analyzerVersion: 'ffmpeg-scdet/1.0',
       evidence,

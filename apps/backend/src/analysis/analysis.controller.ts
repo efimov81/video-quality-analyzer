@@ -1,5 +1,6 @@
+import { ApiMessageErrorDto } from '../common/api-message';
 import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post } from '@nestjs/common';
-import { ApiAcceptedResponse, ApiOkResponse, ApiProperty, ApiTags } from '@nestjs/swagger';
+import { ApiBadRequestResponse, ApiNotFoundResponse, ApiServiceUnavailableResponse, ApiAcceptedResponse, ApiOkResponse, ApiProperty, ApiTags } from '@nestjs/swagger';
 import { IsUUID } from 'class-validator';
 import { AnalysisReportDto, AnalysisRunResponseDto, AnalysisSummaryDto } from './analysis-response.dto';
 import { AnalysisService } from './analysis.service';
@@ -20,6 +21,9 @@ export class AnalysisController {
   constructor(private readonly analysis: AnalysisService) {}
 
   @Post()
+  @ApiBadRequestResponse({ type: ApiMessageErrorDto })
+  @ApiNotFoundResponse({ type: ApiMessageErrorDto })
+  @ApiServiceUnavailableResponse({ type: ApiMessageErrorDto })
   @HttpCode(HttpStatus.ACCEPTED)
   @ApiAcceptedResponse({ description: 'Анализ создан и поставлен в фоновую очередь.', type: AnalysisRunResponseDto })
   create(@Body() body: CreateAnalysisRunDto) {
@@ -33,12 +37,14 @@ export class AnalysisController {
   }
 
   @Get(':id/report')
+  @ApiNotFoundResponse({ type: ApiMessageErrorDto })
   @ApiOkResponse({ description: 'Полный отчёт с результатами и таймкодами.', type: AnalysisReportDto })
   report(@Param('id') id: string) {
     return this.analysis.report(id);
   }
 
   @Get(':id')
+  @ApiNotFoundResponse({ type: ApiMessageErrorDto })
   @ApiOkResponse({ description: 'Состояние запуска анализа.', type: AnalysisRunResponseDto })
   get(@Param('id') id: string) {
     return this.analysis.get(id);

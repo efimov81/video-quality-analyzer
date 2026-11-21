@@ -1,3 +1,4 @@
+import { errorMessageCode } from '../common/api-message';
 import { Inject, Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { and, asc, desc, eq } from 'drizzle-orm';
 import { DATABASE, DatabaseConnection } from '../database/database.module';
@@ -46,7 +47,7 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
       const [job] = await this.connection.db.select().from(jobs)
         .where(eq(jobs.status, 'QUEUED')).orderBy(asc(jobs.createdAt)).limit(1);
       if (!job) return;
-      await this.connection.db.update(jobs).set({ status: 'DOWNLOADING', startedAt: new Date(), error: null })
+      await this.connection.db.update(jobs).set({ status: 'DOWNLOADING', startedAt: new Date(), error: null, errorCode: null })
         .where(and(eq(jobs.id, job.id), eq(jobs.status, 'QUEUED')));
       try {
         const downloaded = await this.downloader.download(job.sourceUrl);
@@ -56,7 +57,7 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
         }).where(eq(jobs.id, job.id));
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Не удалось скачать видео.';
-        await this.connection.db.update(jobs).set({ status: 'FAILED', error: message, completedAt: new Date() })
+        await this.connection.db.update(jobs).set({ status: 'FAILED', error: message, errorCode: errorMessageCode(error, 'errors.downloadFailed'), completedAt: new Date() })
           .where(eq(jobs.id, job.id));
       }
     } finally {

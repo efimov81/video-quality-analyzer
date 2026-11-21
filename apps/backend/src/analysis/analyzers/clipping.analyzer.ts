@@ -15,7 +15,10 @@ export class ClippingAnalyzer implements VideoAnalyzer {
     if (!stream) {
       return [{
         checkType: 'audio_clipping', status: 'SKIPPED', measuredValue: null, expectedValue: null,
-        details: 'Проверка clipping пропущена: аудиопоток отсутствует.', analyzerVersion: 'ffmpeg-pcm-clipping/1.0',
+        messageCode: 'analysis.audio.noStream',
+        messageParams: {},
+        details: 'Проверка clipping пропущена: аудиопоток отсутствует.',
+        analyzerVersion: 'ffmpeg-pcm-clipping/1.0',
       }];
     }
     const measurement = await this.tools.measureClipping(input.filePath, stream.channels ?? 1);
@@ -29,6 +32,8 @@ export class ClippingAnalyzer implements VideoAnalyzer {
       status,
       measuredValue: measurement,
       expectedValue: { maxFullScaleSampleRatio: maximumRatio, minimumConsecutiveSamplesForEvidence: 2 },
+      messageCode: status === 'FAIL' ? 'analysis.audio_clipping.aboveLimit' : detectedPlateau ? 'analysis.audio_clipping.plateau' : 'analysis.audio_clipping.noPlateau',
+      messageParams: { ratio: measurement.fullScaleSampleRatio, limit: maximumRatio },
       details: status === 'FAIL'
         ? 'Доля full-scale PCM-сэмплов превышает настроенный порог.'
         : status === 'WARNING'
@@ -39,6 +44,8 @@ export class ClippingAnalyzer implements VideoAnalyzer {
         timestamp: segment.start,
         problemType: 'full_scale_plateau',
         measuredValue: segment,
+        messageCode: 'analysis.evidence.full_scale_plateau',
+        messageParams: { duration: segment.duration },
         details: `Full-scale участок длится ${segment.duration.toFixed(4)} с.`,
       })),
     }];

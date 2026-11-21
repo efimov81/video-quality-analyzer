@@ -68,9 +68,18 @@ export class VisualAnalyzer implements VideoAnalyzer {
         timestamps: [...overexposed, ...dark].slice(0, 200).map((sample) => ({ timestamp: sample.timestamp, averageLuma: sample.averageLuma })),
       },
       expectedValue: { overexposedY, darkY, maxProblemFrameRatio: maxRatio, samplingRateFps: 1 },
+      messageCode: !samples.length ? 'analysis.visual_brightness.noSamples' : ratio > maxRatio ? 'analysis.visual_brightness.tooManyExtremeFrames' : 'analysis.visual_brightness.withinLimit',
+      messageParams: {},
       details: samples.length ? 'Измерены средняя яркость кадров и доля кадров с экстремальной яркостью. Мгновенные пересветы между выборками могут быть пропущены.' : 'Не удалось получить выборки яркости кадров.',
       analyzerVersion: VERSION,
-      evidence: [...overexposed, ...dark].slice(0, 200).map((sample) => ({ timestamp: sample.timestamp, problemType: sample.averageLuma! >= overexposedY ? 'overexposed_frame' : 'dark_frame', measuredValue: { averageLuma: sample.averageLuma }, details: `Средняя яркость кадра: ${sample.averageLuma}.` })),
+      evidence: [...overexposed, ...dark].slice(0, 200).map((sample) => ({
+        timestamp: sample.timestamp,
+        problemType: sample.averageLuma! >= overexposedY ? 'overexposed_frame' : 'dark_frame',
+        measuredValue: { averageLuma: sample.averageLuma },
+        messageCode: 'analysis.evidence.frameLuma',
+        messageParams: { luma: sample.averageLuma },
+        details: `Средняя яркость кадра: ${sample.averageLuma}.`,
+      })),
     };
   }
 
@@ -86,11 +95,20 @@ export class VisualAnalyzer implements VideoAnalyzer {
       status,
       measuredValue: { sampledFrames: metrics.length, medianFfmpegBlurMetric: median, maxFfmpegBlurMetric: sorted.length ? sorted[sorted.length - 1] : null, worstFrames: worst },
       expectedValue: { maxFfmpegBlurMetric: configuredMax, samplingRateFps: 1 },
+      messageCode: median === null ? 'analysis.blur.noSamples' : configuredMax === null ? 'analysis.blur.noThreshold' : median > configuredMax ? 'analysis.blur.aboveLimit' : 'analysis.blur.withinLimit',
+      messageParams: { value: median, limit: configuredMax },
       details: configuredMax === null
         ? 'FFmpeg blurdetect измерил blur metric; для FAIL нужен откалиброванный порог профиля. Универсальный порог не применяется.'
         : 'Blur metric сравнен с порогом профиля; показатель чувствителен к разрешению, содержимому и сборке FFmpeg.',
       analyzerVersion: VERSION,
-      evidence: configuredMax === null ? [] : worst.filter((sample) => sample.value > configuredMax).map((sample) => ({ timestamp: sample.timestamp, problemType: 'blur_metric_above_threshold', measuredValue: sample.value, details: `FFmpeg blur metric ${sample.value} превышает порог ${configuredMax}.` })),
+      evidence: configuredMax === null ? [] : worst.filter((sample) => sample.value > configuredMax).map((sample) => ({
+        timestamp: sample.timestamp,
+        problemType: 'blur_metric_above_threshold',
+        measuredValue: sample.value,
+        messageCode: 'analysis.evidence.blur_metric_above_threshold',
+        messageParams: { value: sample.value, limit: configuredMax },
+        details: `FFmpeg blur metric ${sample.value} превышает порог ${configuredMax}.`,
+      })),
     };
   }
 
@@ -100,9 +118,18 @@ export class VisualAnalyzer implements VideoAnalyzer {
       checkType: 'black_screens', status,
       measuredValue: { segmentCount: segments.length, segments },
       expectedValue: { minDurationSec: minDuration, pixelThreshold: rule.pixelThreshold },
+      messageCode: segments.length ? 'analysis.black_screens.detected' : 'analysis.black_screens.none',
+      messageParams: { limit: minDuration },
       details: segments.length ? `Обнаружены чёрные экраны длительностью не менее ${minDuration} с.` : 'Чёрные экраны заданной длительности не обнаружены.',
       analyzerVersion: VERSION,
-      evidence: segments.map((segment) => ({ timestamp: segment.start, problemType: 'black_screen', measuredValue: segment, details: `Чёрный экран: ${segment.duration.toFixed(2)} с.` })),
+      evidence: segments.map((segment) => ({
+        timestamp: segment.start,
+        problemType: 'black_screen',
+        measuredValue: segment,
+        messageCode: 'analysis.evidence.black_screen',
+        messageParams: { duration: segment.duration },
+        details: `Чёрный экран: ${segment.duration.toFixed(2)} с.`,
+      })),
     };
   }
 
@@ -112,9 +139,18 @@ export class VisualAnalyzer implements VideoAnalyzer {
       checkType: 'frozen_frames', status,
       measuredValue: { segmentCount: segments.length, segments },
       expectedValue: { minDurationSec: minDuration, noiseDb: rule.noiseDb },
+      messageCode: segments.length ? 'analysis.frozen_frames.detected' : 'analysis.frozen_frames.none',
+      messageParams: {},
       details: segments.length ? 'Обнаружены интервалы почти неизменного изображения; статичная сцена может быть намеренной.' : 'Длительные замороженные участки не обнаружены.',
       analyzerVersion: VERSION,
-      evidence: segments.map((segment) => ({ timestamp: segment.start, problemType: 'frozen_frame', measuredValue: segment, details: `Кадр почти неизменен ${segment.duration.toFixed(2)} с.` })),
+      evidence: segments.map((segment) => ({
+        timestamp: segment.start,
+        problemType: 'frozen_frame',
+        measuredValue: segment,
+        messageCode: 'analysis.evidence.frozen_frame',
+        messageParams: { duration: segment.duration },
+        details: `Кадр почти неизменен ${segment.duration.toFixed(2)} с.`,
+      })),
     };
   }
 

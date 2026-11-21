@@ -1,3 +1,4 @@
+import type { MessageParams } from '../common/api-message';
 import { CheckType, ProfileCriteria } from './profile-criteria';
 
 export type CheckResultStatus = 'PASS' | 'FAIL' | 'WARNING' | 'ERROR' | 'SKIPPED';
@@ -24,14 +25,19 @@ export interface MediaInfo {
   format: { duration?: string; bit_rate?: string; format_name?: string };
 }
 
-export interface AnalysisEvidenceInput {
+interface AnalysisMessage {
+  messageCode: string;
+  messageParams: MessageParams;
+}
+
+export interface AnalysisEvidenceInput extends AnalysisMessage {
   timestamp: number;
   problemType: string;
   measuredValue: unknown;
   details: string;
 }
 
-export interface CheckResultInput {
+export interface CheckResultInput extends AnalysisMessage {
   checkType: CheckType;
   status: CheckResultStatus;
   measuredValue: unknown;

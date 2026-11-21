@@ -1,19 +1,19 @@
 
 <div class="mt-4 border-t border-slate-200 pt-4">
   @if (loading()) {
-    <p class="text-sm text-slate-500">Loading report...</p>
+    <p class="text-sm text-slate-500">{{ 'report.loading' | transloco }}</p>
   }
 
-  @if (error()) {
-    <p class="text-sm text-rose-700">{{ error() }}</p>
+  @if (error(); as failure) {
+    <p class="text-sm text-rose-700">{{ failure.code | transloco: (failure.params | messageParams: language.language(): (failure.fallback || ('errors.loadReport' | transloco))) }}</p>
   }
 
   @if (report(); as data) {
     <div class="mb-4 flex items-center justify-between">
-      <h4 class="font-semibold text-slate-900">Analysis report</h4>
+      <h4 class="font-semibold text-slate-900">{{ 'report.title' | transloco }}</h4>
 
       <span class="rounded-full bg-slate-100 px-3 py-1 text-sm font-medium">
-        {{ data.conclusion }}
+        {{ ('verdict.' + data.conclusion) | transloco }}
       </span>
     </div>
 
@@ -22,7 +22,7 @@
         <details class="rounded-lg border border-slate-200 p-3">
           <summary class="flex cursor-pointer items-center justify-between gap-3">
             <span class="font-medium text-slate-800">
-              {{ check.checkType }}
+              {{ ('check.' + check.checkType) | transloco: { fallback: check.checkType } }}
             </span>
 
             <span
@@ -33,34 +33,34 @@
               [class.text-rose-700]="check.status === 'FAIL'"
               [class.bg-amber-50]="check.status === 'WARNING'"
               [class.text-amber-700]="check.status === 'WARNING'">
-              {{ check.status }}
+              {{ ('status.check.' + check.status) | transloco }}
             </span>
           </summary>
 
           <div class="mt-3 space-y-3 text-sm">
-            <p class="text-slate-600">{{ check.details }}</p>
+            <p class="text-slate-600">{{ (check.messageCode || 'message.legacy') | transloco: (check.messageParams | messageParams: language.language(): (check.details || ('report.messageUnavailable' | transloco))) }}</p>
 
             <div>
-              <p class="mb-1 font-medium">Measured values</p>
+              <p class="mb-1 font-medium">{{ 'report.measured' | transloco }}</p>
               <pre class="overflow-x-auto rounded bg-slate-50 p-3 text-xs">{{ check.measuredValue | json }}</pre>
             </div>
 
             <div>
-              <p class="mb-1 font-medium">Expected values</p>
+              <p class="mb-1 font-medium">{{ 'report.expected' | transloco }}</p>
               <pre class="overflow-x-auto rounded bg-slate-50 p-3 text-xs">{{ check.expectedValue | json }}</pre>
             </div>
 
             @if (check.evidence.length > 0) {
               <div>
-                <p class="mb-2 font-medium">Evidence</p>
+                <p class="mb-2 font-medium">{{ 'report.evidence' | transloco }}</p>
 
                 @for (evidence of check.evidence; track evidence.id) {
                   <div class="mb-2 rounded bg-rose-50 p-3">
                     <p class="font-medium">
-                      {{ evidence.problemType }}
+                      {{ ('problem.' + evidence.problemType) | transloco: { fallback: evidence.problemType } }}
                     </p>
-                    <p>Timestamp: {{ evidence.timestamp }} s</p>
-                    <p>{{ evidence.details }}</p>
+                    <p>{{ 'report.timestamp' | transloco: { time: (evidence.timestamp | number:'1.0-4':language.language()) } }}</p>
+                    <p>{{ (evidence.messageCode || 'message.legacy') | transloco: (evidence.messageParams | messageParams: language.language(): (evidence.details || ('report.messageUnavailable' | transloco))) }}</p>
                   </div>
                 }
               </div>

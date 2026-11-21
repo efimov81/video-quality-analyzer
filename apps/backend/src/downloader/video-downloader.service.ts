@@ -1,3 +1,4 @@
+import { localizedException } from '../common/api-message';
 import { BadRequestException, Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
@@ -48,18 +49,18 @@ export class VideoDownloaderService {
     try {
       url = new URL(source);
     } catch {
-      throw new BadRequestException('Wrong URL format. Please provide a valid HTTP or HTTPS link.');
+      throw localizedException(BadRequestException, 'Wrong URL format. Please provide a valid HTTP or HTTPS link.', 'errors.invalidUrl');
     }
     if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) {
-      throw new BadRequestException('Only public HTTP and HTTPS links are supported.');
+      throw localizedException(BadRequestException, 'Only public HTTP and HTTPS links are supported.', 'errors.publicUrlOnly');
     }
     const host = url.hostname.replace(/^\[|\]$/g, '').toLowerCase();
     if (host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local')) {
-      throw new BadRequestException('Local addresses are not allowed.');
+      throw localizedException(BadRequestException, 'Local addresses are not allowed.', 'errors.localAddress');
     }
     const addresses = isIP(host) ? [{ address: host }] : await lookup(host, { all: true }).catch(() => []);
     if (!addresses.length || addresses.some(({ address }) => !this.isPublicAddress(address))) {
-      throw new BadRequestException('The link must point to a public address.');
+      throw localizedException(BadRequestException, 'The link must point to a public address.', 'errors.publicAddress');
     }
     return url.toString();
   }
@@ -98,7 +99,13 @@ export class VideoDownloaderService {
 
   private downloadError(error: unknown): Error {
     const message = error instanceof Error ? error.message : 'Unknown error';
-    if (message.includes('ENOENT')) return new ServiceUnavailableException('yt-dlp not found. Please install yt-dlp and add it to PATH.');
+    if (message.includes('ENOENT')) {
+      return localizedException(
+        ServiceUnavailableException,
+        'yt-dlp not found. Please install yt-dlp and add it to PATH.',
+        'errors.downloaderMissing',
+      );
+    }
     return new Error(`Failed to download video: ${message}`);
   }
 }

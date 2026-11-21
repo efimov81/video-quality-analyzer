@@ -6,6 +6,7 @@ export interface AnalysisRunResponseDto {
   completedAt: string | null;
   createdAt: string;
   error: string | null;
+  errorCode: string | null;
   id: string;
   profileId: string;
   profileSnapshot: ProfileSnapshotDto;
