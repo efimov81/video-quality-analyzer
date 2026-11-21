@@ -8,6 +8,9 @@ const { JobsService } = require('../dist/src/jobs/jobs.service');
 
 test('web jobs take ownership and source from the authenticated request', async () => {
   const db = {
+    transaction: (run) => run(db),
+    execute: async () => {},
+    select: () => ({ from: () => ({ where: () => ({ orderBy: () => ({ limit: async () => [] }) }) }) }),
     insert(table) {
       assert.equal(table, jobs);
       return { values: (values) => ({ returning: async () => [values] }) };

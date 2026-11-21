@@ -22,3 +22,4 @@ export type { ResetPasswordDto } from './models/reset-password-dto';
 export type { SaveProfileDto } from './models/save-profile-dto';
 export type { UpdateUserDto } from './models/update-user-dto';
 export type { UserResponseDto } from './models/user-response-dto';
+export type { VideoAlreadyExistsDto } from './models/video-already-exists-dto';

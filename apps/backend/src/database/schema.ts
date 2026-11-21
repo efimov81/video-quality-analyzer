@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import type { UserRole } from '../auth/auth.models';
 import type { MessageParams } from '../common/api-message';
 import { defaultJobSource, type JobSource } from '../jobs/job-source';
@@ -68,7 +69,10 @@ export const jobs = pgTable('jobs', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   startedAt: timestamp('started_at', { withTimezone: true }),
   completedAt: timestamp('completed_at', { withTimezone: true }),
-}, (table) => [index('jobs_created_by_user_idx').on(table.createdByUserId)]);
+}, (table) => [
+  index('jobs_created_by_user_idx').on(table.createdByUserId),
+  index('jobs_creator_video_idx').on(table.createdByUserId, sql`md5(job_video_key("source_url"))`),
+]);
 
 export const acceptanceProfiles = pgTable('acceptance_profiles', {
   id: uuid('id').defaultRandom().primaryKey(),

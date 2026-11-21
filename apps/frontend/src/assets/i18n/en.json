@@ -73,6 +73,7 @@
   "errors.analysisQueue": "The analysis could not be queued.",
   "errors.aspectRatioRange": "Aspect ratio limits must be positive and ordered.",
   "errors.brightnessThresholds": "Brightness thresholds must be ordered and between 0 and 255.",
+  "errors.videoAlreadyExists": "This video has already been added.",
   "errors.createJob": "Failed to create the download job.",
   "errors.criteriaObject": "Criteria must be a JSON object.",
   "errors.criterionBoolean": "{{checkType}}.{{key}} must be a boolean.",

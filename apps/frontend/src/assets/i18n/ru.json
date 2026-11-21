@@ -73,6 +73,7 @@
   "errors.analysisQueue": "Не удалось поставить анализ в очередь.",
   "errors.aspectRatioRange": "Границы соотношения сторон должны быть положительными и упорядоченными.",
   "errors.brightnessThresholds": "Пороги яркости должны быть упорядочены и лежать в диапазоне 0–255.",
+  "errors.videoAlreadyExists": "Видео уже добавлено",
   "errors.createJob": "Не удалось создать задание на скачивание.",
   "errors.criteriaObject": "Критерии должны быть JSON-объектом.",
   "errors.criterionBoolean": "{{checkType}}.{{key}} должен быть логическим значением.",

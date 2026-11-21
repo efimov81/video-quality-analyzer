@@ -2,6 +2,14 @@ import { ApiProperty } from '@nestjs/swagger';
 import { Job, jobStatus } from '../database/schema';
 import { jobSources, type JobSource } from './job-source';
 
+export class VideoAlreadyExistsDto {
+  @ApiProperty({ enum: [409] }) statusCode!: 409;
+  @ApiProperty({ enum: ['Conflict'] }) error!: 'Conflict';
+  @ApiProperty({ enum: ['VIDEO_ALREADY_EXISTS'] }) code!: 'VIDEO_ALREADY_EXISTS';
+  @ApiProperty({ example: 'Видео уже добавлено' }) message!: string;
+  @ApiProperty({ format: 'uuid' }) jobId!: string;
+}
+
 export class JobResponseDto {
   @ApiProperty({ format: 'uuid' }) id!: string;
   @ApiProperty() sourceUrl!: string;

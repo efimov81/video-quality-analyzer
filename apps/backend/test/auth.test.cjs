@@ -22,7 +22,8 @@ const { JobsController } = require('../dist/src/jobs/jobs.controller');
 const { JobsService } = require('../dist/src/jobs/jobs.service');
 
 const connectionString = process.env.USERS_MIGRATION_TEST_DATABASE_URL;
-const sourceUrl = 'https://example.com/video';
+const sourceUrl = 'https://www.youtube.com/watch?v=LIIOUrjAETU';
+const shortUrl = 'https://youtu.be/LIIOUrjAETU?si=example';
 
 async function createTestApp(db, enqueued) {
   const jobsService = new JobsService({ db }, {});
@@ -108,7 +109,16 @@ async function verifyAuth(app, db, enqueued) {
   const aliceJob = (await post('/jobs', { sourceUrl, createdByUserId: bob.user.id, source: 'mcp' }, alice.cookie, 201)).data;
   assert.equal(aliceJob.createdByUserId, alice.user.id);
   assert.equal(aliceJob.source, 'web');
-  const bobJob = (await post('/jobs', { sourceUrl }, bob.cookie, 201)).data;
+  const duplicate = {
+    statusCode: 409,
+    error: 'Conflict',
+    code: 'VIDEO_ALREADY_EXISTS',
+    message: 'Видео уже добавлено',
+    jobId: aliceJob.id,
+  };
+  assert.deepEqual((await post('/jobs', { sourceUrl }, alice.cookie, 409)).data, duplicate);
+  assert.deepEqual((await post('/jobs', { sourceUrl: shortUrl }, alice.cookie, 409)).data, duplicate);
+  const bobJob = (await post('/jobs', { sourceUrl: shortUrl }, bob.cookie, 201)).data;
   const [legacyJob] = await db.insert(jobs).values({ sourceUrl }).returning();
   assert.deepEqual((await call('/jobs', { cookie: alice.cookie })).data.map(({ id }) => id), [aliceJob.id]);
   assert.deepEqual((await call('/jobs', { cookie: bob.cookie })).data.map(({ id }) => id), [bobJob.id]);
@@ -130,6 +140,7 @@ async function verifyAuth(app, db, enqueued) {
   const runBody = { videoId: aliceJob.id, profileId: profile.id, requestedByUserId: bob.user.id };
   await post('/analysis-runs', runBody, bob.cookie, 403);
   await db.update(jobs).set({ status: 'DOWNLOADED', localPath: __filename }).where(eq(jobs.id, aliceJob.id));
+  assert.deepEqual((await post('/jobs', { sourceUrl: shortUrl }, alice.cookie, 409)).data, duplicate);
   const run = (await post('/analysis-runs', runBody, alice.cookie, 202)).data;
   assert.equal(run.requestedByUserId, alice.user.id);
   assert.deepEqual(enqueued, [run.id]);

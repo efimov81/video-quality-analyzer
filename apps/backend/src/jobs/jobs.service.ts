@@ -1,6 +1,6 @@
 import { errorMessageCode } from '../common/api-message';
-import { Inject, Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import { and, asc, desc, eq, getTableColumns } from 'drizzle-orm';
+import { ConflictException, Inject, Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { and, asc, desc, eq, getTableColumns, sql } from 'drizzle-orm';
 import { DATABASE, DatabaseConnection } from '../database/database.module';
 import { jobs, Job, users } from '../database/schema';
 import { VideoDownloaderService } from '../downloader/video-downloader.service';
@@ -30,12 +30,36 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
   }
 
   async create(sourceUrl: string, user: SessionUser): Promise<Job> {
-    const [job] = await this.connection.db.insert(jobs).values({
-      sourceUrl,
-      source: defaultJobSource,
-      createdByUserId: user.id,
-    }).returning();
-    return job;
+    const videoKey = sql`job_video_key(${sourceUrl})`;
+    const storedVideoKey = sql`job_video_key(${jobs.sourceUrl})`;
+    return this.connection.db.transaction(async (tx) => {
+      // Read the existing jobs after the lock, including any insert committed by the previous holder.
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${'jobs:' + user.id}), hashtext(${videoKey}))`);
+      const [existing] = await tx.select({ id: jobs.id }).from(jobs)
+        .where(and(
+          eq(jobs.createdByUserId, user.id),
+          sql`md5(${storedVideoKey}) = md5(${videoKey})`,
+          sql`${storedVideoKey} = ${videoKey}`,
+        ))
+        .orderBy(asc(jobs.createdAt), asc(jobs.id))
+        .limit(1);
+      if (existing) {
+        throw new ConflictException({
+          statusCode: 409,
+          error: 'Conflict',
+          code: 'VIDEO_ALREADY_EXISTS',
+          message: 'Видео уже добавлено',
+          jobId: existing.id,
+        });
+      }
+
+      const [job] = await tx.insert(jobs).values({
+        sourceUrl,
+        source: defaultJobSource,
+        createdByUserId: user.id,
+      }).returning();
+      return job;
+    }, { isolationLevel: 'read committed' });
   }
 
   async list(user: SessionUser) {

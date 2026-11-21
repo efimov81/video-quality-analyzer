@@ -1,11 +1,11 @@
 import { ApiMessageErrorDto, localizedException } from '../common/api-message';
 import { BadRequestException, Body, Controller, Get, HttpCode, HttpStatus, NotFoundException, Param, ParseUUIDPipe, Post } from '@nestjs/common';
-import { ApiBadRequestResponse, ApiNotFoundResponse, ApiCreatedResponse, ApiOkResponse, ApiProperty, ApiCookieAuth, ApiTags } from '@nestjs/swagger';
+import { ApiBadRequestResponse, ApiConflictResponse, ApiNotFoundResponse, ApiCreatedResponse, ApiOkResponse, ApiProperty, ApiCookieAuth, ApiTags } from '@nestjs/swagger';
 import { IsString, IsUrl, MaxLength } from 'class-validator';
 import { Job } from '../database/schema';
 import type { SessionUser } from '../auth/auth.models';
 import { CurrentUser } from '../auth/session.guard';
-import { JobDetailsDto, JobResponseDto } from './job-response.dto';
+import { JobDetailsDto, JobResponseDto, VideoAlreadyExistsDto } from './job-response.dto';
 import { JobsService } from './jobs.service';
 
 class CreateJobDto {
@@ -24,6 +24,7 @@ export class JobsController {
 
   @Post()
   @ApiBadRequestResponse({ type: ApiMessageErrorDto })
+  @ApiConflictResponse({ type: VideoAlreadyExistsDto })
   @ApiCreatedResponse({ description: 'Задание создано и помещено в очередь.', type: JobResponseDto })
   create(@Body() dto: CreateJobDto, @CurrentUser() user: SessionUser): Promise<Job> {
     if (typeof dto?.sourceUrl !== 'string' || dto.sourceUrl.length > 2048) {

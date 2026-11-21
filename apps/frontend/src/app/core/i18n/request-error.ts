@@ -9,6 +9,10 @@ export interface RequestError {
 
 export function requestError(error: unknown, fallbackCode: string): RequestError {
   const body: unknown = error instanceof HttpErrorResponse ? error.error : null;
+  if (error instanceof HttpErrorResponse && error.status === 409 &&
+    body && typeof body === 'object' && 'code' in body && body.code === 'VIDEO_ALREADY_EXISTS') {
+    return { code: 'errors.videoAlreadyExists' };
+  }
   if (!body || typeof body !== 'object' || !('messageCode' in body) || typeof body.messageCode !== 'string') {
     if (error instanceof HttpErrorResponse && error.status === 403) return { code: 'errors.accessDenied' };
     return { code: fallbackCode };

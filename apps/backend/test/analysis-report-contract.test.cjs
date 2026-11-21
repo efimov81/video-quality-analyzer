@@ -29,6 +29,7 @@ test('documents the job creator on list and detail responses while preserving ex
   assert.deepEqual(responseSchema(paths['/api/jobs'].get), { type: 'array', items: detailRef });
   assert.deepEqual(responseSchema(paths['/api/jobs/{id}'].get), detailRef);
   assert.deepEqual(responseSchema(paths['/api/jobs'].post, '201'), { $ref: '#/components/schemas/JobResponseDto' });
+  assert.deepEqual(responseSchema(paths['/api/jobs'].post, '409'), { $ref: '#/components/schemas/VideoAlreadyExistsDto' });
   const { createdBy, ...existingProperties } = JobDetailsDto.properties;
   assert.deepEqual(existingProperties, JobResponseDto.properties);
   assert.deepEqual(createdBy, {
