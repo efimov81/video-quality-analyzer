@@ -16,6 +16,10 @@ export const routes: Routes = [
     loadComponent: () => import('./features/profile/profile.component').then((m) => m.ProfileComponent),
   },
   {
+    path: 'profiles', canActivate: [requireSession],
+    loadComponent: () => import('./features/profiles/profiles.component').then((m) => m.ProfilesComponent),
+  },
+  {
     path: 'users', canActivate: [requireSession],
     loadComponent: () => import('./features/users/users.component').then((m) => m.UsersComponent),
   },

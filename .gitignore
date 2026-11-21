@@ -7,6 +7,7 @@ apps/*/out-tsc/
 .env.*
 !.env.example
 videos/
+!apps/frontend/src/app/features/videos/
 
 .venv/
 __pycache__/

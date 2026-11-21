@@ -1,0 +1,114 @@
+<main class="mx-auto max-w-4xl px-5 py-10 sm:px-8 sm:py-16">
+  <header class="mb-10">
+    <p class="text-sm font-semibold uppercase tracking-[0.18em] text-indigo-700">{{ 'app.name' | transloco }}</p>
+    <h1 class="mt-3 text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">{{ 'app.download' | transloco }}</h1>
+    <p class="mt-3 max-w-2xl text-slate-600">{{ 'app.description' | transloco }}</p>
+  </header>
+
+  <form class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6" [formGroup]="form"
+    (ngSubmit)="submit()">
+    <label for="video-url" class="block text-sm font-medium text-slate-800">{{ 'app.videoLink' | transloco }}</label>
+    <div class="mt-2 flex flex-col gap-3 sm:flex-row">
+      <input id="video-url" type="url" formControlName="sourceUrl" placeholder="https://…"
+        class="min-w-0 flex-1 rounded-lg border border-slate-300 px-4 py-3 text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100" />
+      <button type="submit" [disabled]="form.invalid || submitting() || (form.controls.autoAnalyze.value && !form.controls.profileCode.value)"
+        class="rounded-lg bg-indigo-600 px-5 py-3 font-medium text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50">
+        {{ (submitting() ? 'app.adding' : 'app.add') | transloco }}
+      </button>
+    </div>
+    <div class="mt-4 flex flex-wrap items-center gap-4">
+      <label class="flex items-center gap-2 text-sm font-medium">
+        <input type="checkbox" formControlName="autoAnalyze" /> {{ 'video.autoAnalyze' | transloco }}
+      </label>
+      @if (form.controls.autoAnalyze.value) {
+        <label class="block min-w-48 text-sm font-medium">
+          {{ 'profiles.select' | transloco }}
+          <select class="account-input" formControlName="profileCode">
+            <option value="">{{ 'profiles.choose' | transloco }}</option>
+            @for (profile of activeProfiles(); track profile.id) {
+              <option [value]="profile.code">{{ profile.name }} ({{ profile.code }})</option>
+            }
+          </select>
+        </label>
+      }
+    </div>
+    @if (profilesError() || (form.controls.autoAnalyze.value && activeProfiles().length === 0)) {
+      <p role="alert" class="mt-2 text-sm text-rose-700">{{ (profilesError() || 'errors.activeProfilesMissing') | transloco }}</p>
+    }
+    @if (form.controls.sourceUrl.touched && form.controls.sourceUrl.invalid) {
+    <p class="mt-2 text-sm text-rose-700">{{ 'app.invalidLink' | transloco }}</p>
+    }
+    @if (submitError(); as error) {
+      <p role="alert" class="mt-3 text-sm text-rose-700">
+        {{ error.code | transloco: (error.params | messageParams: language.language(): (error.fallback || ('errors.createJob' | transloco))) }}
+      </p>
+    }
+  </form>
+
+  <section class="mt-10" aria-labelledby="jobs-title">
+    <div class="flex items-end justify-between gap-4">
+      <div>
+        <h2 id="jobs-title" class="text-xl font-semibold text-slate-950">{{ 'app.jobs' | transloco }}</h2>
+        <p class="mt-1 text-sm text-slate-500">{{ 'app.refresh' | transloco }}</p>
+      </div>
+      <span class="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-600">{{ visibleJobs().length }}</span>
+    </div>
+    @if (isAdmin()) {
+      <label class="mt-4 block max-w-sm text-sm font-medium">
+        {{ 'video.filterOwner' | transloco }}
+        <select class="account-input" [formControl]="ownerFilter">
+          <option value="">{{ 'video.allOwners' | transloco }}</option>
+          <option value="unassigned">{{ 'video.noOwner' | transloco }}</option>
+          @for (owner of owners(); track owner.id) {
+            <option [value]="owner.id">
+              {{ ownerName(owner) }}@if (ownerName(owner) !== (owner.username ?? owner.id)) { ({{ owner.username ?? owner.id }}) }
+            </option>
+          }
+        </select>
+      </label>
+    }
+    @if (downloadableJobs().length || batchResult()) {
+      <div class="mt-4 rounded-xl border border-slate-200 bg-white p-4">
+        <div class="flex flex-wrap items-end gap-3">
+          <label class="flex items-center gap-2 self-center text-sm font-medium">
+            <input type="checkbox" [checked]="allSelected()" [indeterminate]="selectedJobs().length > 0 && !allSelected()"
+              [disabled]="batchBusy() || !downloadableJobs().length" (change)="toggleAll($any($event.target).checked)" />
+            {{ 'video.selectAll' | transloco }}
+          </label>
+          <span class="self-center text-sm text-slate-600">{{ 'video.selected' | transloco: { count: selectedJobs().length } }}</span>
+          <label class="block min-w-48 text-sm font-medium">
+            {{ 'profiles.select' | transloco }}
+            <select class="account-input" [formControl]="batchProfile">
+              <option value="">{{ 'profiles.choose' | transloco }}</option>
+              @for (profile of activeProfiles(); track profile.id) {
+                <option [value]="profile.id">{{ profile.name }} ({{ profile.code }})</option>
+              }
+            </select>
+          </label>
+          <button type="button" class="account-button" [disabled]="!selectedJobs().length || !batchProfile.value || batchBusy()"
+            (click)="startBatch()">{{ (batchBusy() ? 'video.startingBatch' : 'video.startBatch') | transloco }}</button>
+          <button type="button" class="nav-link" [disabled]="!selectedJobs().length || batchBusy()"
+            (click)="clearSelection()">{{ 'video.clearSelection' | transloco }}</button>
+        </div>
+        @if (batchResult(); as result) {
+          <p class="mt-3 text-sm text-slate-700" role="status">{{ 'video.batchResult' | transloco: result }}</p>
+        }
+      </div>
+    }
+    @if (loadError()) { <p role="alert" class="mt-4 rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{{ loadError() | transloco }}
+    </p> }
+    @if (visibleJobs().length === 0) {
+    <div class="mt-5 rounded-xl border border-dashed border-slate-300 p-8 text-center text-slate-500">
+      {{ (jobs().length ? 'video.noOwnerMatches' : 'app.empty') | transloco }}
+    </div>
+    } @else {
+    <ul class="mt-5 space-y-3">
+      @for (job of visibleJobs(); track job.id) {
+        <vqa-video-card [job]="job" [runs]="runsForVideo(job.id)" [selected]="selectedIds().has(job.id)"
+          [selectionDisabled]="batchBusy()" (selectionChange)="toggleJob(job.id, $event)"
+          [ownerName]="isAdmin() ? (job.createdBy ? ownerName(job.createdBy) : ('video.noOwner' | transloco)) : null" />
+      }
+    </ul>
+    }
+  </section>
+</main>

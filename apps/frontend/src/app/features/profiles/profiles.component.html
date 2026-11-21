@@ -1,0 +1,69 @@
+<main class="mx-auto max-w-4xl px-5 py-10 sm:px-8">
+  <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+    <h1 class="text-3xl font-semibold text-slate-950">{{ 'profiles.title' | transloco }}</h1>
+    <button class="account-button" type="button" [disabled]="busy()" (click)="edit()">{{ 'profiles.new' | transloco }}</button>
+  </div>
+
+  <ul class="mb-6 divide-y divide-slate-200 rounded-xl border border-slate-200 bg-white">
+    @for (profile of profiles(); track profile.id) {
+      <li>
+        <button type="button" class="block w-full px-4 py-3 text-left hover:bg-slate-50"
+          [class.bg-indigo-50]="selected() === profile.id"
+          [attr.aria-pressed]="selected() === profile.id" [disabled]="busy()" (click)="edit(profile)">
+          <span class="block break-words font-semibold">{{ profile.name }}</span>
+          <span class="block text-sm text-slate-600">
+            {{ profile.code }} · {{ 'profiles.version' | transloco: { version: profile.version } }}
+            · {{ (profile.isActive ? 'auth.active' : 'auth.inactive') | transloco }}
+            @if (profile.isDefault) { · {{ 'profiles.default' | transloco }} }
+          </span>
+          @if (profile.description) { <span class="block break-words text-sm text-slate-600">{{ profile.description }}</span> }
+        </button>
+      </li>
+    }
+  </ul>
+
+  @if (editing()) {
+    <form class="account-panel" [formGroup]="form" (ngSubmit)="save()">
+      <h2 class="text-lg font-semibold">{{ (selected() ? 'profiles.edit' : 'profiles.new') | transloco }}</h2>
+      <div class="grid gap-4 sm:grid-cols-2">
+        <label class="block text-sm font-medium">
+          {{ 'profiles.name' | transloco }}
+          <input class="account-input" formControlName="name" maxlength="120" required />
+        </label>
+        <label class="block text-sm font-medium">
+          {{ 'profiles.code' | transloco }}
+          <input class="account-input" formControlName="code" maxlength="64" required />
+          @if (form.controls.code.touched && form.controls.code.invalid) {
+            <span class="text-rose-700">{{ 'profiles.codeHint' | transloco }}</span>
+          }
+        </label>
+      </div>
+      <label class="block text-sm font-medium">
+        {{ 'profiles.description' | transloco }}
+        <textarea class="account-input" formControlName="description" rows="2" maxlength="2000"></textarea>
+      </label>
+      <label class="flex items-center gap-2 text-sm font-medium">
+        <input type="checkbox" formControlName="isActive" (change)="form.controls.isDefault.setValue(false)" />
+        {{ 'auth.active' | transloco }}
+      </label>
+      @if (form.controls.isActive.value) {
+        <label class="flex items-center gap-2 text-sm font-medium">
+          <input type="checkbox" formControlName="isDefault" /> {{ 'profiles.default' | transloco }}
+        </label>
+      }
+      <label class="block text-sm font-medium">
+        {{ 'profiles.criteria' | transloco }}
+        <textarea class="account-input font-mono" formControlName="criteriaText" rows="14" spellcheck="false" required></textarea>
+      </label>
+      <button class="account-button" type="submit" [disabled]="form.invalid || busy()">{{ 'auth.save' | transloco }}</button>
+    </form>
+  }
+  @if (error(); as issue) {
+    <p class="mt-3 text-sm text-rose-700" role="alert">
+      {{ issue.code | transloco: (issue.params | messageParams: language.language(): (issue.fallback || ('errors.saveProfile' | transloco))) }}
+    </p>
+  }
+  @if (saved()) {
+    <p class="mt-3 text-sm text-emerald-700" role="status">{{ 'profiles.saved' | transloco }}</p>
+  }
+</main>

@@ -1,9 +1,9 @@
 import { ApiMessageErrorDto } from '../common/api-message';
 import { Body, Controller, Get, Param, Post, Put } from '@nestjs/common';
-import { ApiBadRequestResponse, ApiNotFoundResponse, ApiCreatedResponse, ApiOkResponse, ApiProperty, ApiCookieAuth, ApiTags } from '@nestjs/swagger';
-import { IsBoolean, IsObject, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { ApiConflictResponse, ApiBadRequestResponse, ApiNotFoundResponse, ApiCreatedResponse, ApiOkResponse, ApiProperty, ApiCookieAuth, ApiTags } from '@nestjs/swagger';
+import { IsBoolean, IsObject, IsOptional, IsString, Matches, MaxLength, MinLength, ValidateIf } from 'class-validator';
 import { Access } from '../auth/session.guard';
-import { ProfilesService, SaveProfileInput } from './profiles.service';
+import { profileCodePattern, ProfilesService, SaveProfileInput } from './profiles.service';
 
 class SaveProfileDto implements SaveProfileInput {
   @ApiProperty({ example: 'Full HD training video' })
@@ -23,6 +23,16 @@ class SaveProfileDto implements SaveProfileInput {
   @IsBoolean()
   isActive?: boolean;
 
+  @ApiProperty({ required: false, pattern: profileCodePattern.source })
+  @ValidateIf((_dto, value) => value !== undefined)
+  @Matches(profileCodePattern)
+  code?: string;
+
+  @ApiProperty({ required: false })
+  @ValidateIf((_dto, value) => value !== undefined)
+  @IsBoolean()
+  isDefault?: boolean;
+
   @ApiProperty({ type: 'object', additionalProperties: true })
   @IsObject()
   criteria!: unknown;
@@ -30,6 +40,8 @@ class SaveProfileDto implements SaveProfileInput {
 
 class ProfileResponseDto {
   @ApiProperty({ format: 'uuid' }) id!: string;
+  @ApiProperty() code!: string;
+  @ApiProperty() isDefault!: boolean;
   @ApiProperty() name!: string;
   @ApiProperty() description!: string;
   @ApiProperty() version!: number;
@@ -65,9 +77,17 @@ export class ProfilesController {
   @Post()
   @Access('admin')
   @ApiBadRequestResponse({ type: ApiMessageErrorDto })
+  @ApiConflictResponse({ type: ApiMessageErrorDto })
   @ApiCreatedResponse({ description: 'Профиль создан вместе с первой версией.', type: ProfileResponseDto })
   create(@Body() body: SaveProfileDto) {
     return this.profiles.create(body);
+  }
+
+  @Get('by-code/:code')
+  @ApiNotFoundResponse({ type: ApiMessageErrorDto })
+  @ApiOkResponse({ type: ProfileResponseDto })
+  getByCode(@Param('code') code: string) {
+    return this.profiles.getByCode(code);
   }
 
   @Get(':id/versions')
@@ -87,6 +107,7 @@ export class ProfilesController {
   @Put(':id')
   @Access('admin')
   @ApiBadRequestResponse({ type: ApiMessageErrorDto })
+  @ApiConflictResponse({ type: ApiMessageErrorDto })
   @ApiNotFoundResponse({ type: ApiMessageErrorDto })
   @ApiOkResponse({ description: 'Профиль обновлён созданием новой версии.', type: ProfileResponseDto })
   update(@Param('id') id: string, @Body() body: SaveProfileDto) {

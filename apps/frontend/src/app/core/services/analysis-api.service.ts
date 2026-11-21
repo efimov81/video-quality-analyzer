@@ -13,6 +13,10 @@ export class AnalysisApiService {
     return this.api.analysisControllerList();
   }
 
+  create(videoId: string, profileId: string) {
+    return this.api.analysisControllerCreate({ body: { videoId, profileId } });
+  }
+
   report(runId: string): Observable<AnalysisReportDto> {
     return this.api.analysisControllerReport({ id: runId });
   }

@@ -1,3 +1,4 @@
+import type { CreateJobDto } from '../../api/generated/models/create-job-dto';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { JobsService } from '../../api/generated/services/jobs.service';
@@ -12,7 +13,7 @@ export class JobsApiService {
     return this.jobs.jobsControllerList();
   }
 
-  create(sourceUrl: string): Observable<JobResponseDto> {
-    return this.jobs.jobsControllerCreate({ body: { sourceUrl } });
+  create(body: CreateJobDto): Observable<JobResponseDto> {
+    return this.jobs.jobsControllerCreate({ body });
   }
 }

@@ -71,6 +71,13 @@
       "when": 1795246702953,
       "tag": "0009_job-video-key",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1795249019592,
+      "tag": "0010_analysis-profiles",
+      "breakpoints": true
     }
   ]
 }

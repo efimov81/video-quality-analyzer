@@ -7,14 +7,14 @@ import { filter, map } from 'rxjs/operators';
 import { StrictHttpResponse } from '../../strict-http-response';
 import { RequestBuilder } from '../../request-builder';
 
-import { AnalysisRunResponseDto } from '../../models/analysis-run-response-dto';
 import { CreateAnalysisRunDto } from '../../models/create-analysis-run-dto';
+import { CreateAnalysisRunResponseDto } from '../../models/create-analysis-run-response-dto';
 
 export interface AnalysisControllerCreate$Params {
       body: CreateAnalysisRunDto
 }
 
-export function analysisControllerCreate(http: HttpClient, rootUrl: string, params: AnalysisControllerCreate$Params, context?: HttpContext): Observable<StrictHttpResponse<AnalysisRunResponseDto>> {
+export function analysisControllerCreate(http: HttpClient, rootUrl: string, params: AnalysisControllerCreate$Params, context?: HttpContext): Observable<StrictHttpResponse<CreateAnalysisRunResponseDto>> {
   const rb = new RequestBuilder(rootUrl, analysisControllerCreate.PATH, 'post');
   if (params) {
     rb.body(params.body, 'application/json');
@@ -25,7 +25,7 @@ export function analysisControllerCreate(http: HttpClient, rootUrl: string, para
   ).pipe(
     filter((r: any): r is HttpResponse<any> => r instanceof HttpResponse),
     map((r: HttpResponse<any>) => {
-      return r as StrictHttpResponse<AnalysisRunResponseDto>;
+      return r as StrictHttpResponse<CreateAnalysisRunResponseDto>;
     })
   );
 }

@@ -9,7 +9,7 @@ export const requireSession: CanActivateFn = (route, state) => {
   if (user.mustChangePassword && route.routeConfig?.path !== 'profile') {
     return router.createUrlTree(['/profile'], { queryParams: { returnUrl: returnPath(state.url) } });
   }
-  if (route.routeConfig?.path === 'users' && user.role !== 'admin') {
+  if (['users', 'profiles'].includes(route.routeConfig?.path ?? '') && user.role !== 'admin') {
     return router.createUrlTree(['/forbidden']);
   }
   return true;

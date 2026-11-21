@@ -11,6 +11,8 @@ const { Pool } = require('pg');
 
 const { AnalysisController } = require('../dist/src/analysis/analysis.controller');
 const { AnalysisService } = require('../dist/src/analysis/analysis.service');
+const { ProfilesController } = require('../dist/src/analysis/profiles.controller');
+const { ProfilesService } = require('../dist/src/analysis/profiles.service');
 const { AuthController } = require('../dist/src/auth/auth.controller');
 const { AuthService } = require('../dist/src/auth/auth.service');
 const { SessionGuard } = require('../dist/src/auth/session.guard');
@@ -26,13 +28,14 @@ const sourceUrl = 'https://www.youtube.com/watch?v=LIIOUrjAETU';
 const shortUrl = 'https://youtu.be/LIIOUrjAETU?si=example';
 
 async function createTestApp(db, enqueued) {
-  const jobsService = new JobsService({ db }, {});
+  const jobsService = new JobsService({ db }, {}, new ProfilesService({ db }));
   class TestModule {}
   Module({
-    controllers: [AuthController, UsersController, JobsController, AnalysisController],
+    controllers: [AuthController, UsersController, JobsController, AnalysisController, ProfilesController],
     providers: [
       AuthService,
       UsersService,
+      ProfilesService,
       { provide: APP_GUARD, useClass: SessionGuard },
       { provide: DATABASE, useValue: { db } },
       { provide: AnalysisService, useValue: new AnalysisService({ db }, [], {}, { enqueue: async (id) => enqueued.push(id) }) },
@@ -143,7 +146,11 @@ async function verifyAuth(app, db, enqueued) {
   assert.deepEqual((await post('/jobs', { sourceUrl: shortUrl }, alice.cookie, 409)).data, duplicate);
   const run = (await post('/analysis-runs', runBody, alice.cookie, 202)).data;
   assert.equal(run.requestedByUserId, alice.user.id);
+  assert.equal(run.reused, false);
   assert.deepEqual(enqueued, [run.id]);
+  const repeatedRun = (await post('/analysis-runs', runBody, alice.cookie, 202)).data;
+  assert.equal(repeatedRun.id, run.id);
+  assert.equal(repeatedRun.reused, true);
   const [legacyRun] = await db.insert(analysisRuns).values({
     videoId: legacyJob.id, profileId: profile.id, profileVersion: profile.version, profileSnapshot: {},
   }).returning();
@@ -178,7 +185,55 @@ async function verifyAuth(app, db, enqueued) {
   await post('/auth/login', { login: 'bob', password: 'personal-123' }, undefined, 401);
   await call(`/users/${bob.user.id}`, { method: 'PATCH', body: { isActive: true, displayName: 'Bobby' }, cookie: admin.cookie });
   await call('/auth/me', { cookie: bob.cookie, status: 401 });
-  assert.equal((await login('bob', 'personal-123')).user.displayName, 'Bobby');
+  const reactivatedBob = await login('bob', 'personal-123');
+  assert.equal(reactivatedBob.user.displayName, 'Bobby');
+
+  const baseProfile = (await call('/profiles/by-code/base', { cookie: admin.cookie })).data;
+  assert.equal(baseProfile.isDefault, true);
+  const autoBody = { sourceUrl: 'https://example.com/planned', autoAnalyze: true };
+  const autoJob = (await post('/jobs', autoBody, admin.cookie, 201)).data;
+  const profileInput = { name: 'Full checks', code: 'full', isDefault: true, criteria: {} };
+  await post('/profiles', profileInput, reactivatedBob.cookie, 403);
+  const full = (await post('/profiles', profileInput, admin.cookie, 201)).data;
+  assert.equal((await call('/profiles/by-code/base', { cookie: admin.cookie })).data.isDefault, false);
+  await post('/profiles', profileInput, admin.cookie, 409);
+  const explicitJob = (await post('/jobs', {
+    ...autoBody, sourceUrl: 'https://example.com/explicit', profileCode: 'full',
+  }, admin.cookie, 201)).data;
+  const reviseProfile = (id, body) => call(`/profiles/${id}`, { method: 'PUT', body, cookie: admin.cookie });
+  const changed = (await reviseProfile(full.id, { ...profileInput, name: 'Updated checks', isDefault: false, isActive: false })).data;
+  assert.equal(changed.version, full.version + 1);
+  await post('/jobs', { ...autoBody, sourceUrl: 'https://example.com/inactive', profileCode: 'full' }, admin.cookie, 400);
+  await post('/jobs', { ...autoBody, sourceUrl: 'https://example.com/missing', profileCode: 'missing' }, admin.cookie, 404);
+  const missingDefault = (await post('/jobs', { ...autoBody, sourceUrl: 'https://example.com/no-default' }, admin.cookie, 400)).data;
+  assert.equal(missingDefault.messageCode, 'errors.defaultProfileMissing');
+
+  const analysis = app.get(AnalysisService);
+  const listVideoRuns = async (id) => (await db.select().from(analysisRuns).where(eq(analysisRuns.videoId, id)));
+  await analysis.dispatchPendingAutoAnalyses();
+  assert.equal((await listVideoRuns(autoJob.id)).length, 0);
+  for (const job of [autoJob, explicitJob]) {
+    await db.update(jobs).set({ status: 'DOWNLOADED', localPath: __filename }).where(eq(jobs.id, job.id));
+  }
+
+  const failingAnalysis = new AnalysisService({ db }, [], {}, {
+    enqueue: async () => { throw new Error('Redis unavailable'); },
+  });
+  await assert.rejects(failingAnalysis.dispatchPendingAutoAnalyses(), /Redis unavailable/);
+  await analysis.dispatchPendingAutoAnalyses();
+  const countAfterRecovery = enqueued.length;
+  await analysis.dispatchPendingAutoAnalyses();
+  assert.equal(enqueued.length, countAfterRecovery);
+  const [planned] = await listVideoRuns(autoJob.id);
+  const [pinned] = await listVideoRuns(explicitJob.id);
+  assert.ok(enqueued.includes(planned.id) && enqueued.includes(pinned.id));
+  assert.equal((await listVideoRuns(autoJob.id)).length, 1);
+  assert.equal((await listVideoRuns(explicitJob.id)).length, 1);
+  assert.equal(planned.profileId, baseProfile.id);
+  assert.equal(pinned.profileVersion, full.version);
+  assert.equal(pinned.profileSnapshot.name, full.name);
+  const { data: downloaded } = await call(`/jobs/${explicitJob.id}`, { cookie: admin.cookie });
+  assert.equal(downloaded.status, 'DOWNLOADED');
 
   const logout = await post('/auth/logout', undefined, admin.cookie, 204);
   assert.match(logout.cookie, /Expires=/i);

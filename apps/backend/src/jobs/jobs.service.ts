@@ -2,10 +2,11 @@ import { errorMessageCode } from '../common/api-message';
 import { ConflictException, Inject, Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { and, asc, desc, eq, getTableColumns, sql } from 'drizzle-orm';
 import { DATABASE, DatabaseConnection } from '../database/database.module';
-import { jobs, Job, users } from '../database/schema';
+import { jobAutoAnalyses, jobs, Job, users } from '../database/schema';
 import { VideoDownloaderService } from '../downloader/video-downloader.service';
 import type { SessionUser } from '../auth/auth.models';
 import { accessDenied } from '../auth/session.guard';
+import { ProfilesService } from '../analysis/profiles.service';
 import { defaultJobSource } from './job-source';
 
 @Injectable()
@@ -16,6 +17,7 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
   constructor(
     @Inject(DATABASE) private readonly connection: DatabaseConnection,
     private readonly downloader: VideoDownloaderService,
+    private readonly profiles: ProfilesService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -29,7 +31,7 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
     if (this.timer) clearInterval(this.timer);
   }
 
-  async create(sourceUrl: string, user: SessionUser): Promise<Job> {
+  async create(sourceUrl: string, user: SessionUser, options: { autoAnalyze?: boolean; profileCode?: string } = {}): Promise<Job> {
     const videoKey = sql`job_video_key(${sourceUrl})`;
     const storedVideoKey = sql`job_video_key(${jobs.sourceUrl})`;
     return this.connection.db.transaction(async (tx) => {
@@ -53,11 +55,17 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
         });
       }
 
+      const profileVersionId = options.autoAnalyze || options.profileCode !== undefined
+        ? await this.profiles.resolveVersion(tx, options.profileCode)
+        : undefined;
       const [job] = await tx.insert(jobs).values({
         sourceUrl,
         source: defaultJobSource,
         createdByUserId: user.id,
       }).returning();
+      if (options.autoAnalyze && profileVersionId) {
+        await tx.insert(jobAutoAnalyses).values({ videoId: job.id, profileVersionId });
+      }
       return job;
     }, { isolationLevel: 'read committed' });
   }

@@ -31,6 +31,10 @@ export class AnalysisRunResponseDto {
   @ApiProperty({ type: String, format: 'date-time', nullable: true }) completedAt!: string | null;
 }
 
+export class CreateAnalysisRunResponseDto extends AnalysisRunResponseDto {
+  @ApiProperty({ description: 'Возвращён ранее созданный активный запуск.' }) reused!: boolean;
+}
+
 export class AnalysisSummaryDto {
   @ApiProperty({ type: AnalysisRunResponseDto }) run!: AnalysisRunResponseDto;
   @ApiProperty({ type: String, nullable: true }) videoTitle!: string | null;

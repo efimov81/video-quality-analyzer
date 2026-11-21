@@ -1,11 +1,12 @@
 import { ApiMessageErrorDto, localizedException } from '../common/api-message';
 import { BadRequestException, Body, Controller, Get, HttpCode, HttpStatus, NotFoundException, Param, ParseUUIDPipe, Post } from '@nestjs/common';
 import { ApiBadRequestResponse, ApiConflictResponse, ApiNotFoundResponse, ApiCreatedResponse, ApiOkResponse, ApiProperty, ApiCookieAuth, ApiTags } from '@nestjs/swagger';
-import { IsString, IsUrl, MaxLength } from 'class-validator';
+import { IsBoolean, IsString, IsUrl, Matches, MaxLength, ValidateIf } from 'class-validator';
 import { Job } from '../database/schema';
 import type { SessionUser } from '../auth/auth.models';
 import { CurrentUser } from '../auth/session.guard';
 import { JobDetailsDto, JobResponseDto, VideoAlreadyExistsDto } from './job-response.dto';
+import { profileCodePattern } from '../analysis/profiles.service';
 import { JobsService } from './jobs.service';
 
 class CreateJobDto {
@@ -14,6 +15,16 @@ class CreateJobDto {
   @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
   @MaxLength(2048)
   sourceUrl!: string;
+
+  @ApiProperty({ required: false, default: false })
+  @ValidateIf((_dto, value) => value !== undefined)
+  @IsBoolean()
+  autoAnalyze?: boolean;
+
+  @ApiProperty({ required: false, pattern: profileCodePattern.source })
+  @ValidateIf((_dto, value) => value !== undefined)
+  @Matches(profileCodePattern)
+  profileCode?: string;
 }
 
 @ApiTags('jobs')
@@ -24,6 +35,7 @@ export class JobsController {
 
   @Post()
   @ApiBadRequestResponse({ type: ApiMessageErrorDto })
+  @ApiNotFoundResponse({ type: ApiMessageErrorDto })
   @ApiConflictResponse({ type: VideoAlreadyExistsDto })
   @ApiCreatedResponse({ description: 'Задание создано и помещено в очередь.', type: JobResponseDto })
   create(@Body() dto: CreateJobDto, @CurrentUser() user: SessionUser): Promise<Job> {
@@ -36,7 +48,7 @@ export class JobsController {
     } catch {
       throw localizedException(BadRequestException, 'Укажите корректную ссылку HTTP или HTTPS.', 'errors.invalidUrl');
     }
-    return this.jobs.create(dto.sourceUrl, user);
+    return this.jobs.create(dto.sourceUrl, user, dto);
   }
 
   @Get()

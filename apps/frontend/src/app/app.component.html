@@ -5,6 +5,7 @@
         @if (!user.mustChangePassword) {
           <a class="nav-link" routerLink="/videos" routerLinkActive="nav-active" ariaCurrentWhenActive="page">{{ 'auth.videos' | transloco }}</a>
           @if (user.role === 'admin') {
+            <a class="nav-link" routerLink="/profiles" routerLinkActive="nav-active" ariaCurrentWhenActive="page">{{ 'profiles.title' | transloco }}</a>
             <a class="nav-link" routerLink="/users" routerLinkActive="nav-active" ariaCurrentWhenActive="page">{{ 'auth.users' | transloco }}</a>
           }
         }

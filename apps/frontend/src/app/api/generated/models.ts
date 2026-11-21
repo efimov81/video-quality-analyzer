@@ -9,6 +9,7 @@ export type { AnalysisSummaryDto } from './models/analysis-summary-dto';
 export type { ApiMessageErrorDto } from './models/api-message-error-dto';
 export type { ChangePasswordDto } from './models/change-password-dto';
 export type { CreateAnalysisRunDto } from './models/create-analysis-run-dto';
+export type { CreateAnalysisRunResponseDto } from './models/create-analysis-run-response-dto';
 export type { CreateJobDto } from './models/create-job-dto';
 export type { CreateUserDto } from './models/create-user-dto';
 export type { JobCreatorDto } from './models/job-creator-dto';

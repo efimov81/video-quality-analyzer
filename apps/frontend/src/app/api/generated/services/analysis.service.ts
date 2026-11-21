@@ -21,6 +21,7 @@ import { AnalysisControllerReport$Params } from '../fn/analysis/analysis-control
 import { AnalysisReportDto } from '../models/analysis-report-dto';
 import { AnalysisRunResponseDto } from '../models/analysis-run-response-dto';
 import { AnalysisSummaryDto } from '../models/analysis-summary-dto';
+import { CreateAnalysisRunResponseDto } from '../models/create-analysis-run-response-dto';
 
 @Injectable({ providedIn: 'root' })
 export class AnalysisService extends BaseService {
@@ -64,7 +65,7 @@ export class AnalysisService extends BaseService {
    *
    * This method sends `application/json` and handles request body of type `application/json`.
    */
-  analysisControllerCreate$Response(params: AnalysisControllerCreate$Params, context?: HttpContext): Observable<StrictHttpResponse<AnalysisRunResponseDto>> {
+  analysisControllerCreate$Response(params: AnalysisControllerCreate$Params, context?: HttpContext): Observable<StrictHttpResponse<CreateAnalysisRunResponseDto>> {
     const obs = analysisControllerCreate(this.http, this.rootUrl, params, context);
     return obs;
   }
@@ -75,10 +76,10 @@ export class AnalysisService extends BaseService {
    *
    * This method sends `application/json` and handles request body of type `application/json`.
    */
-  analysisControllerCreate(params: AnalysisControllerCreate$Params, context?: HttpContext): Observable<AnalysisRunResponseDto> {
+  analysisControllerCreate(params: AnalysisControllerCreate$Params, context?: HttpContext): Observable<CreateAnalysisRunResponseDto> {
     const resp = this.analysisControllerCreate$Response(params, context);
     return resp.pipe(
-      map((r: StrictHttpResponse<AnalysisRunResponseDto>): AnalysisRunResponseDto => r.body)
+      map((r: StrictHttpResponse<CreateAnalysisRunResponseDto>): CreateAnalysisRunResponseDto => r.body)
     );
   }
 

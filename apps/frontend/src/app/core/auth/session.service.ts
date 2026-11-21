@@ -10,7 +10,7 @@ import { AuthService } from '../../api/generated/services/auth.service';
 export const skipSessionRedirect = new HttpContextToken(() => false);
 
 export function returnPath(value: string | null): string {
-  return value && /^\/(videos|profile|users)(?:[/?#]|$)/.test(value) ? value : '/videos';
+  return value && /^\/(videos|profile|profiles|users)(?:[/?#]|$)/.test(value) ? value : '/videos';
 }
 
 @Injectable({ providedIn: 'root' })
@@ -63,7 +63,7 @@ export class SessionService {
       if (!user.isActive) this.expire();
       else {
         this.currentUser.set(user);
-        if (user.role !== 'admin' && returnPath(this.router.url).startsWith('/users')) {
+        if (user.role !== 'admin' && /^\/(users|profiles)(?:[/?#]|$)/.test(this.router.url)) {
           void this.router.navigate(['/videos']);
         }
       }

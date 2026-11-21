@@ -19,6 +19,8 @@ export type { ProfilesControllerList$Params as ProfilesControllerList$Params } f
 export { profilesControllerList as profilesControllerList } from './fn/profiles/profiles-controller-list';
 export type { ProfilesControllerCreate$Params as ProfilesControllerCreate$Params } from './fn/profiles/profiles-controller-create';
 export { profilesControllerCreate as profilesControllerCreate } from './fn/profiles/profiles-controller-create';
+export type { ProfilesControllerGetByCode$Params as ProfilesControllerGetByCode$Params } from './fn/profiles/profiles-controller-get-by-code';
+export { profilesControllerGetByCode as profilesControllerGetByCode } from './fn/profiles/profiles-controller-get-by-code';
 export type { ProfilesControllerVersions$Params as ProfilesControllerVersions$Params } from './fn/profiles/profiles-controller-versions';
 export { profilesControllerVersions as profilesControllerVersions } from './fn/profiles/profiles-controller-versions';
 export type { ProfilesControllerGet$Params as ProfilesControllerGet$Params } from './fn/profiles/profiles-controller-get';

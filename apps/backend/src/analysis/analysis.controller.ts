@@ -1,10 +1,10 @@
 import { ApiMessageErrorDto } from '../common/api-message';
 import { Body, Controller, Get, HttpCode, HttpStatus, Param, ParseUUIDPipe, Post } from '@nestjs/common';
-import { ApiBadRequestResponse, ApiForbiddenResponse, ApiNotFoundResponse, ApiServiceUnavailableResponse, ApiAcceptedResponse, ApiOkResponse, ApiProperty, ApiCookieAuth, ApiTags } from '@nestjs/swagger';
+import { ApiConflictResponse, ApiBadRequestResponse, ApiForbiddenResponse, ApiNotFoundResponse, ApiServiceUnavailableResponse, ApiAcceptedResponse, ApiOkResponse, ApiProperty, ApiCookieAuth, ApiTags } from '@nestjs/swagger';
 import { IsUUID } from 'class-validator';
 import type { SessionUser } from '../auth/auth.models';
 import { CurrentUser } from '../auth/session.guard';
-import { AnalysisReportDto, AnalysisRunResponseDto, AnalysisSummaryDto } from './analysis-response.dto';
+import { AnalysisReportDto, AnalysisRunResponseDto, AnalysisSummaryDto, CreateAnalysisRunResponseDto } from './analysis-response.dto';
 import { AnalysisService } from './analysis.service';
 
 class CreateAnalysisRunDto {
@@ -25,11 +25,12 @@ export class AnalysisController {
 
   @Post()
   @ApiBadRequestResponse({ type: ApiMessageErrorDto })
+  @ApiConflictResponse({ type: ApiMessageErrorDto })
   @ApiForbiddenResponse({ type: ApiMessageErrorDto })
   @ApiNotFoundResponse({ type: ApiMessageErrorDto })
   @ApiServiceUnavailableResponse({ type: ApiMessageErrorDto })
   @HttpCode(HttpStatus.ACCEPTED)
-  @ApiAcceptedResponse({ description: 'Анализ создан и поставлен в фоновую очередь.', type: AnalysisRunResponseDto })
+  @ApiAcceptedResponse({ description: 'Анализ создан и поставлен в фоновую очередь.', type: CreateAnalysisRunResponseDto })
   create(@Body() body: CreateAnalysisRunDto, @CurrentUser() user: SessionUser) {
     return this.analysis.create(body.videoId, body.profileId, user);
   }

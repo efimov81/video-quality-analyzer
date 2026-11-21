@@ -4,6 +4,7 @@ import type { MessageParams } from '../common/api-message';
 import { defaultJobSource, type JobSource } from '../jobs/job-source';
 import {
   boolean,
+  check,
   doublePrecision,
   index,
   integer,
@@ -76,6 +77,8 @@ export const jobs = pgTable('jobs', {
 
 export const acceptanceProfiles = pgTable('acceptance_profiles', {
   id: uuid('id').defaultRandom().primaryKey(),
+  code: text('code').notNull(),
+  isDefault: boolean('is_default').default(false).notNull(),
   name: text('name').notNull(),
   description: text('description').notNull().default(''),
   version: integer('version').notNull().default(1),
@@ -83,7 +86,11 @@ export const acceptanceProfiles = pgTable('acceptance_profiles', {
   criteria: jsonb('criteria').notNull().$type<Record<string, unknown>>(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
+}, (table) => [
+  uniqueIndex('acceptance_profiles_code_unique').on(table.code),
+  uniqueIndex('acceptance_profiles_default_unique').on(table.isDefault).where(sql`${table.isDefault}`),
+  check('acceptance_profiles_default_active', sql`not ${table.isDefault} or ${table.isActive}`),
+]);
 
 export const acceptanceProfileVersions = pgTable('acceptance_profile_versions', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -113,6 +120,15 @@ export const analysisRuns = pgTable('analysis_runs', {
   index('analysis_runs_video_created_idx').on(table.videoId, table.createdAt),
   index('analysis_runs_requested_by_user_idx').on(table.requestedByUserId),
   index('analysis_runs_status_idx').on(table.status),
+]);
+
+export const jobAutoAnalyses = pgTable('job_auto_analyses', {
+  videoId: uuid('video_id').primaryKey().references(() => jobs.id, { onDelete: 'cascade' }),
+  profileVersionId: uuid('profile_version_id').notNull().references(() => acceptanceProfileVersions.id),
+  runId: uuid('run_id').references(() => analysisRuns.id),
+  dispatchedAt: timestamp('dispatched_at', { withTimezone: true }),
+}, (table) => [
+  index('job_auto_analyses_pending_idx').on(table.videoId).where(sql`${table.dispatchedAt} IS NULL`),
 ]);
 
 export const analysisCheckResults = pgTable('analysis_check_results', {

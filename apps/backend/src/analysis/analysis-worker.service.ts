@@ -12,6 +12,8 @@ interface AnalysisJobData { runId: string }
 @Injectable()
 export class AnalysisWorkerService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(AnalysisWorkerService.name);
+  private autoAnalysisTimer?: ReturnType<typeof setInterval>;
+  private dispatching = false;
   private worker?: Worker<AnalysisJobData>;
 
   constructor(
@@ -38,6 +40,8 @@ export class AnalysisWorkerService implements OnModuleInit, OnModuleDestroy {
         this.logger.error(`Failed to persist analysis failure: ${message}`);
       });
     });
+    this.autoAnalysisTimer = setInterval(() => void this.dispatchAutoAnalyses(), 1000);
+    void this.dispatchAutoAnalyses();
     void this.recoverPendingRuns().catch((error: unknown) => {
       const message = error instanceof Error ? error.message : 'Queue recovery failed';
       this.logger.error(`Unable to recover pending analyses: ${message}`);
@@ -45,7 +49,20 @@ export class AnalysisWorkerService implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleDestroy(): Promise<void> {
+    clearInterval(this.autoAnalysisTimer);
     await this.worker?.close();
+  }
+
+  private async dispatchAutoAnalyses(): Promise<void> {
+    if (this.dispatching) return;
+    this.dispatching = true;
+    try {
+      await this.analysis.dispatchPendingAutoAnalyses();
+    } catch (error) {
+      this.logger.error('Unable to dispatch automatic analysis', error);
+    } finally {
+      this.dispatching = false;
+    }
   }
 
   private async recoverPendingRuns(): Promise<void> {

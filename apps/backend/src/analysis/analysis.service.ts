@@ -1,9 +1,9 @@
 import { localizedException } from '../common/api-message';
 import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { existsSync, statSync } from 'node:fs';
 import { DATABASE, DatabaseConnection } from '../database/database.module';
-import { acceptanceProfiles, analysisCheckResults, analysisEvidence, analysisRuns, jobs } from '../database/schema';
+import { acceptanceProfiles, acceptanceProfileVersions, analysisCheckResults, analysisEvidence, analysisRuns, jobAutoAnalyses, jobs } from '../database/schema';
 import { AnalysisQueueService } from './analysis-queue.service';
 import { AnalysisEvidenceInput, AnalyzerInput, CheckResultInput, MediaInfo, ProfileSnapshot, VideoAnalyzer } from './analysis.models';
 import { MediaToolsService } from './media-tools.service';
@@ -17,6 +17,8 @@ const CHECK_TYPES: CheckType[] = [
   'background_noise', 'speech_vad', 'visual_brightness', 'blur', 'black_screens', 'frozen_frames', 'upscaling_experimental',
 ];
 
+type Transaction = Parameters<Parameters<DatabaseConnection['db']['transaction']>[0]>[0];
+
 @Injectable()
 export class AnalysisService {
   constructor(
@@ -27,8 +29,8 @@ export class AnalysisService {
   ) {}
 
   async create(videoId: string, profileId: string, user: SessionUser) {
-    const run = await this.connection.db.transaction(async (tx) => {
-      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${videoId}), hashtext(${profileId}))`);
+    const { run, reused } = await this.connection.db.transaction(async (tx) => {
+      await this.lockPair(tx, videoId, profileId);
       const [video] = await tx.select().from(jobs).where(eq(jobs.id, videoId)).limit(1);
       if (video && user.role !== 'admin' && video.createdByUserId !== user.id) throw accessDenied();
       if (!video || video.status !== 'DOWNLOADED' || !video.localPath || !existsSync(video.localPath) || !statSync(video.localPath).isFile()) {
@@ -37,43 +39,100 @@ export class AnalysisService {
       const [profile] = await tx.select().from(acceptanceProfiles).where(eq(acceptanceProfiles.id, profileId)).limit(1);
       if (!profile) throw localizedException(NotFoundException, 'Профиль не найден.', 'errors.profileNotFound');
       if (!profile.isActive) throw localizedException(BadRequestException, 'Выбранный профиль не активен.', 'errors.profileInactive');
-      const [existing] = await tx.select().from(analysisRuns).where(and(
-        eq(analysisRuns.videoId, videoId),
-        eq(analysisRuns.profileId, profileId),
-        inArray(analysisRuns.status, ['QUEUED', 'RUNNING']),
-      )).limit(1);
+      const existing = await this.activeRun(tx, videoId, profileId);
       if (existing) {
         if (user.role !== 'admin' && existing.requestedByUserId !== user.id) {
           throw localizedException(ConflictException, 'Анализ этого видео уже выполняется.', 'errors.analysisAlreadyRunning');
         }
-        return existing;
+        return { run: existing, reused: true };
       }
-
-      const profileSnapshot: ProfileSnapshot = {
-        id: profile.id,
-        name: profile.name,
-        version: profile.version,
-        criteria: normalizeCriteria(profile.criteria),
-      };
-      const [created] = await tx.insert(analysisRuns).values({
-        videoId,
-        profileId,
-        requestedByUserId: user.id,
-        profileVersion: profile.version,
-        profileSnapshot: { ...profileSnapshot },
-        status: 'QUEUED',
-      }).returning();
-      return created;
+      return { run: await this.insertRun(tx, videoId, user.id, profile), reused: false };
     });
 
     try {
-      await this.queue.enqueue(run.id);
+      if (run.status === 'QUEUED') await this.queue.enqueue(run.id);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Очередь анализа недоступна.';
-      await this.connection.db.update(analysisRuns).set({ status: 'FAILED', error: message, errorCode: 'errors.analysisQueue', completedAt: new Date() })
-        .where(eq(analysisRuns.id, run.id));
+      if (!reused) {
+        const message = error instanceof Error ? error.message : 'Очередь анализа недоступна.';
+        await this.connection.db.update(analysisRuns).set({ status: 'FAILED', error: message, errorCode: 'errors.analysisQueue', completedAt: new Date() })
+          .where(and(eq(analysisRuns.id, run.id), eq(analysisRuns.status, 'QUEUED')));
+      }
       throw localizedException(ServiceUnavailableException, 'Не удалось поместить анализ в очередь. Проверьте доступность Redis.', 'errors.analysisQueue');
     }
+    return { ...run, reused };
+  }
+
+  async dispatchPendingAutoAnalyses(): Promise<void> {
+    const { db } = this.connection;
+    const plans = await db.select({
+      videoId: jobAutoAnalyses.videoId,
+      profile: acceptanceProfileVersions,
+      userId: jobs.createdByUserId,
+    }).from(jobAutoAnalyses)
+      .innerJoin(jobs, eq(jobs.id, jobAutoAnalyses.videoId))
+      .innerJoin(acceptanceProfileVersions, eq(acceptanceProfileVersions.id, jobAutoAnalyses.profileVersionId))
+      .where(and(eq(jobs.status, 'DOWNLOADED'), isNull(jobAutoAnalyses.dispatchedAt)));
+
+    for (const { videoId, profile, userId } of plans) {
+      const run = await db.transaction(async (tx) => {
+        await this.lockPair(tx, videoId, profile.profileId);
+        const [plan] = await tx.select().from(jobAutoAnalyses).where(eq(jobAutoAnalyses.videoId, videoId));
+        if (!plan || plan.dispatchedAt) return;
+        if (plan.runId) {
+          const [linkedRun] = await tx.select().from(analysisRuns).where(eq(analysisRuns.id, plan.runId));
+          return linkedRun;
+        }
+
+        const existing = await this.activeRun(tx, videoId, profile.profileId);
+        if (existing && (existing.profileVersion !== profile.version || existing.requestedByUserId !== userId)) return;
+
+        const snapshot = { id: profile.profileId, name: profile.name, version: profile.version, criteria: profile.criteria };
+        const selected = existing ?? await this.insertRun(tx, videoId, userId, snapshot);
+        // Persist the run and its link together before talking to Redis.
+        await tx.update(jobAutoAnalyses).set({ runId: selected.id }).where(eq(jobAutoAnalyses.videoId, videoId));
+        return selected;
+      });
+
+      if (!run) continue;
+      if (run.status === 'QUEUED') await this.queue.enqueue(run.id);
+      await db.update(jobAutoAnalyses).set({ dispatchedAt: new Date() })
+        .where(and(eq(jobAutoAnalyses.videoId, videoId), isNull(jobAutoAnalyses.dispatchedAt)));
+    }
+  }
+
+  private async lockPair(tx: Transaction, videoId: string, profileId: string): Promise<void> {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${videoId}), hashtext(${profileId}))`);
+  }
+
+  private async activeRun(tx: Transaction, videoId: string, profileId: string) {
+    const [run] = await tx.select().from(analysisRuns).where(and(
+      eq(analysisRuns.videoId, videoId),
+      eq(analysisRuns.profileId, profileId),
+      inArray(analysisRuns.status, ['QUEUED', 'RUNNING']),
+    )).limit(1);
+    return run;
+  }
+
+  private async insertRun(
+    tx: Transaction,
+    videoId: string,
+    userId: string | null,
+    profile: { id: string; name: string; version: number; criteria: unknown },
+  ) {
+    const profileSnapshot: ProfileSnapshot = {
+      id: profile.id,
+      name: profile.name,
+      version: profile.version,
+      criteria: normalizeCriteria(profile.criteria),
+    };
+    const [run] = await tx.insert(analysisRuns).values({
+      videoId,
+      profileId: profile.id,
+      requestedByUserId: userId,
+      profileVersion: profile.version,
+      profileSnapshot: { ...profileSnapshot },
+      status: 'QUEUED',
+    }).returning();
     return run;
   }
 

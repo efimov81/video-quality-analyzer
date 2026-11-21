@@ -15,6 +15,8 @@ import { profilesControllerCreate } from '../fn/profiles/profiles-controller-cre
 import { ProfilesControllerCreate$Params } from '../fn/profiles/profiles-controller-create';
 import { profilesControllerGet } from '../fn/profiles/profiles-controller-get';
 import { ProfilesControllerGet$Params } from '../fn/profiles/profiles-controller-get';
+import { profilesControllerGetByCode } from '../fn/profiles/profiles-controller-get-by-code';
+import { ProfilesControllerGetByCode$Params } from '../fn/profiles/profiles-controller-get-by-code';
 import { profilesControllerList } from '../fn/profiles/profiles-controller-list';
 import { ProfilesControllerList$Params } from '../fn/profiles/profiles-controller-list';
 import { profilesControllerUpdate } from '../fn/profiles/profiles-controller-update';
@@ -78,6 +80,33 @@ export class ProfilesService extends BaseService {
    */
   profilesControllerCreate(params: ProfilesControllerCreate$Params, context?: HttpContext): Observable<ProfileResponseDto> {
     const resp = this.profilesControllerCreate$Response(params, context);
+    return resp.pipe(
+      map((r: StrictHttpResponse<ProfileResponseDto>): ProfileResponseDto => r.body)
+    );
+  }
+
+  /** Path part for operation `profilesControllerGetByCode()` */
+  static readonly ProfilesControllerGetByCodePath = '/api/profiles/by-code/{code}';
+
+  /**
+   * This method provides access to the full `HttpResponse`, allowing access to response headers.
+   * To access only the response body, use `profilesControllerGetByCode()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  profilesControllerGetByCode$Response(params: ProfilesControllerGetByCode$Params, context?: HttpContext): Observable<StrictHttpResponse<ProfileResponseDto>> {
+    const obs = profilesControllerGetByCode(this.http, this.rootUrl, params, context);
+    return obs;
+  }
+
+  /**
+   * This method provides access only to the response body.
+   * To access the full response (for headers, for example), `profilesControllerGetByCode$Response()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  profilesControllerGetByCode(params: ProfilesControllerGetByCode$Params, context?: HttpContext): Observable<ProfileResponseDto> {
+    const resp = this.profilesControllerGetByCode$Response(params, context);
     return resp.pipe(
       map((r: StrictHttpResponse<ProfileResponseDto>): ProfileResponseDto => r.body)
     );
