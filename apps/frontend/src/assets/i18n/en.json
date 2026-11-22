@@ -92,6 +92,7 @@
   "errors.localVideoMissing": "The local video file is missing.",
   "errors.loudnessThresholds": "minIntegratedLufs must be less than maxIntegratedLufs.",
   "errors.pixelThreshold": "black_screens.pixelThreshold must be between 0 and 1.",
+  "errors.preflightPolicy": "Choose download or block for the inconclusive preflight policy.",
   "errors.profileInactive": "The selected profile is inactive.",
   "errors.profileName": "A profile name is required and must be at most {{limit}} characters.",
   "errors.profileNotFound": "The profile was not found.",

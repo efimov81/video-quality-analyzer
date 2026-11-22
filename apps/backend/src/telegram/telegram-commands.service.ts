@@ -74,7 +74,8 @@ export class TelegramCommandsService {
         return;
       }
       const origin = { botId: context.botId, chatId, telegramUserId: externalId, messageId: message.message_id };
-      await reply(await this.analyze(input.at(-1)!, input.length === 2 ? input[0] : undefined, origin, language));
+      const response = await this.analyze(input.at(-1)!, input.length === 2 ? input[0] : undefined, origin, language);
+      if (response) await reply(response);
     }
   }
 
@@ -113,10 +114,11 @@ export class TelegramCommandsService {
     profileCode: string | undefined,
     origin: Parameters<JobsService['createFromTelegram']>[1],
     language: TelegramLanguage,
-  ): Promise<string> {
+  ): Promise<string | undefined> {
     const messages = telegramMessages[language];
     try {
       const { job, profile } = await this.jobs.createFromTelegram(sourceUrl, origin, profileCode);
+      if (job.preflight?.status === 'REJECTED') return undefined;
       return `${messages.accepted}: ${job.id}\n${messages.profile}: ${profile.name} (${profile.code}), ${messages.version} ${profile.version}`;
     } catch (error) {
       if (!(error instanceof HttpException)) throw error;

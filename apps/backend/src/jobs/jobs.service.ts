@@ -2,13 +2,17 @@ import { errorMessageCode, localizedException } from '../common/api-message';
 import { BadRequestException, ConflictException, Inject, Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { and, asc, desc, eq, getTableColumns, sql } from 'drizzle-orm';
 import { DATABASE, DatabaseConnection } from '../database/database.module';
-import { jobAutoAnalyses, jobs, Job, telegramJobNotifications, users } from '../database/schema';
+import { acceptanceProfileVersions, jobAutoAnalyses, jobs, Job, telegramJobNotifications, users } from '../database/schema';
 import { VideoDownloaderService } from '../downloader/video-downloader.service';
 import type { SessionUser } from '../auth/auth.models';
 import { selectTelegramUser } from '../auth/telegram-identity';
 import { accessDenied } from '../auth/session.guard';
 import { ProfilesService } from '../analysis/profiles.service';
 import { defaultJobSource, type JobSource } from './job-source';
+
+import { normalizeCriteria } from '../analysis/profile-criteria';
+import { isShortsUrl, metadataFailure, shortsUrlRejection, youtubeUrl, type PreflightResult } from '../downloader/video-preflight';
+import { formatPreflightFailure } from '../downloader/preflight-message';
 
 type Transaction = Parameters<Parameters<DatabaseConnection['db']['transaction']>[0]>[0];
 
@@ -64,7 +68,10 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
       if (sourceUrl.length > 2048 || !video?.key.startsWith('youtube:')) {
         throw localizedException(BadRequestException, 'Укажите ссылку на видео YouTube.', 'errors.telegramYouTubeOnly');
       }
-      const canonicalUrl = `https://www.youtube.com/watch?v=${video.key.slice('youtube:'.length)}`;
+      const videoId = video.key.slice('youtube:'.length);
+      const canonicalUrl = isShortsUrl(sourceUrl)
+        ? `https://www.youtube.com/shorts/${videoId}`
+        : `https://www.youtube.com/watch?v=${videoId}`;
       const result = await this.insertJob(tx, canonicalUrl, user.id, 'telegram', { autoAnalyze: true, profileCode });
       if (!result.profile) throw new Error('The automatic Telegram job has no profile.');
       await tx.insert(telegramJobNotifications).values({ videoId: result.job.id, ...origin });
@@ -95,11 +102,19 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
       });
     }
 
-    const profile = options.autoAnalyze || options.profileCode !== undefined
+    const youtube = youtubeUrl(sourceUrl) !== null;
+    const profile = youtube || options.autoAnalyze || options.profileCode !== undefined
       ? await this.profiles.resolveVersion(tx, options.profileCode)
       : undefined;
-    const [job] = await tx.insert(jobs).values({ sourceUrl, source, createdByUserId: userId }).returning();
-    if (options.autoAnalyze && profile) {
+    const earlyRejection = youtube && profile && isShortsUrl(sourceUrl)
+      ? shortsUrlRejection(sourceUrl, normalizeCriteria(profile.criteria))
+      : undefined;
+    const [job] = await tx.insert(jobs).values({
+      sourceUrl, source, createdByUserId: userId,
+      ...(youtube && profile ? { preflightProfileVersionId: profile.id } : {}),
+      ...(earlyRejection ? this.preflightFailureValues(earlyRejection) : {}),
+    }).returning();
+    if (options.autoAnalyze && profile && !earlyRejection) {
       await tx.insert(jobAutoAnalyses).values({ videoId: job.id, profileVersionId: profile.id });
     }
     return { job, profile };
@@ -124,6 +139,35 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
     }).from(jobs).leftJoin(users, eq(jobs.createdByUserId, users.id));
   }
 
+  private async runPreflight(job: Job) {
+    if (!job.preflightProfileVersionId) return { blocked: false };
+    const { db } = this.connection;
+    const [version] = await db.select({ criteria: acceptanceProfileVersions.criteria }).from(acceptanceProfileVersions)
+      .where(eq(acceptanceProfileVersions.id, job.preflightProfileVersionId));
+    if (!version) {
+      await this.finishPreflightFailure(job.id, metadataFailure('Profile version missing'));
+      return { blocked: true };
+    }
+
+    const criteria = normalizeCriteria(version.criteria);
+    const { result, info } = await this.downloader.preflight(job.sourceUrl, criteria);
+    const blocked = result.status !== 'PASSED' &&
+      !(result.status === 'INCONCLUSIVE' && criteria.resolution.preflightInconclusive === 'download');
+    if (blocked) await this.finishPreflightFailure(job.id, result);
+    else await db.update(jobs).set({ preflight: result }).where(eq(jobs.id, job.id));
+    return { blocked, info };
+  }
+
+  private preflightFailureValues(preflight: PreflightResult) {
+    const errorCode = preflight.status === 'REJECTED' ? 'errors.preflightRejected'
+      : preflight.status === 'INCONCLUSIVE' ? 'errors.preflightInconclusive' : 'errors.preflightMetadata';
+    return { preflight, status: 'FAILED' as const, error: formatPreflightFailure(preflight, 'ru'), errorCode, completedAt: new Date() };
+  }
+
+  private async finishPreflightFailure(jobId: string, preflight: PreflightResult): Promise<void> {
+    await this.connection.db.update(jobs).set(this.preflightFailureValues(preflight)).where(eq(jobs.id, jobId));
+  }
+
   private async processNext(): Promise<void> {
     if (this.working) return;
     this.working = true;
@@ -131,10 +175,13 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
       const [job] = await this.connection.db.select().from(jobs)
         .where(eq(jobs.status, 'QUEUED')).orderBy(asc(jobs.createdAt)).limit(1);
       if (!job) return;
-      await this.connection.db.update(jobs).set({ status: 'DOWNLOADING', startedAt: new Date(), error: null, errorCode: null })
-        .where(and(eq(jobs.id, job.id), eq(jobs.status, 'QUEUED')));
+      const [claimed] = await this.connection.db.update(jobs).set({ status: 'DOWNLOADING', startedAt: new Date(), error: null, errorCode: null })
+        .where(and(eq(jobs.id, job.id), eq(jobs.status, 'QUEUED'))).returning({ id: jobs.id });
+      if (!claimed) return;
       try {
-        const downloaded = await this.downloader.download(job.sourceUrl);
+        const preflight = await this.runPreflight(job);
+        if (preflight.blocked) return;
+        const downloaded = await this.downloader.download(job.sourceUrl, preflight.info);
         await this.connection.db.update(jobs).set({
           status: 'DOWNLOADED', localPath: downloaded.path, title: downloaded.info.title ?? null,
           description: downloaded.info.description ?? null, completedAt: new Date(),

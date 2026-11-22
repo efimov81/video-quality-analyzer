@@ -6,6 +6,7 @@ import { DATABASE, type DatabaseConnection } from '../database/database.module';
 import { analysisRuns, jobAutoAnalyses, jobs, telegramJobNotifications, telegramPreferences } from '../database/schema';
 import { type TelegramApi, TelegramApiError } from './telegram-api';
 import { telegramMessages } from './telegram-messages';
+import { formatPreflightFailure } from '../downloader/preflight-message';
 import { formatTelegramReport } from './telegram-report';
 
 type Notification = typeof telegramJobNotifications.$inferSelect;
@@ -55,7 +56,9 @@ export class TelegramNotificationsService {
 
       const locale = language ?? 'en';
       const messages = telegramMessages[locale];
-      const summary = video.status === 'FAILED' ? messages.downloadFailed : messages.analysisFailed;
+      const summary = video.preflight && video.status === 'FAILED' && video.errorCode?.startsWith('errors.preflight')
+        ? formatPreflightFailure(video.preflight, locale)
+        : video.status === 'FAILED' ? messages.downloadFailed : messages.analysisFailed;
       const report = run?.status === 'COMPLETED'
         ? formatTelegramReport(await this.analysis.report(run.id, { ...user, role: 'user' }), locale)
         : null;

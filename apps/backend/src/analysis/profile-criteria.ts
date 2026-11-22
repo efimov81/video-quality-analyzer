@@ -2,7 +2,7 @@ import { localizedException } from '../common/api-message';
 import { BadRequestException } from '@nestjs/common';
 
 export const DEFAULT_PROFILE_CRITERIA = {
-  resolution: { enabled: true, minWidth: 1920, minHeight: 1080, portraitAware: true, minAspectRatio: 0.3, maxAspectRatio: 2.4, minVideoBitrateBps: null, minDurationSec: 1, maxDurationSec: 21_600 },
+  resolution: { enabled: true, minWidth: 1920, minHeight: 1080, portraitAware: true, minAspectRatio: 0.3, maxAspectRatio: 2.4, minVideoBitrateBps: null, minDurationSec: 1, maxDurationSec: 21_600, allowShorts: true, preflightInconclusive: 'download' },
   audio_presence: { enabled: true, required: true },
   audio_silence: { enabled: true, thresholdDb: -60, minSegmentSec: 2, maxSegmentSec: 30 },
   scene_cuts: { enabled: true, minIntervalSec: 5, maxFrequentCuts: 0, sensitivity: 3, dedupWindowSec: 1 },
@@ -62,6 +62,9 @@ export function normalizeCriteria(value: unknown): ProfileCriteria {
     if (checkType === 'resolution' && ((rule.minAspectRatio as number) <= 0 || (rule.minAspectRatio as number) >= (rule.maxAspectRatio as number))) {
       throw localizedException(BadRequestException, 'Диапазон aspect ratio должен содержать положительные упорядоченные значения.', 'errors.aspectRatioRange');
     }
+    if (checkType === 'resolution' && !['download', 'block'].includes(rule.preflightInconclusive as string)) {
+      throw localizedException(BadRequestException, 'resolution.preflightInconclusive должен быть download или block.', 'errors.preflightPolicy');
+    }
     if (checkType === 'scene_cuts' && ((rule.sensitivity as number) > 100 || (rule.maxFrequentCuts as number) % 1 !== 0 || (rule.dedupWindowSec as number) > 10)) {
       throw localizedException(BadRequestException, 'Параметры scene_cuts вне поддерживаемого диапазона.', 'errors.sceneCutThresholds');
     }
@@ -84,4 +87,18 @@ export function criterionNumber(criteria: ProfileCriteria, checkType: CheckType,
 
 export function criterionEnabled(criteria: ProfileCriteria, checkType: CheckType): boolean {
   return criteria[checkType].enabled === true;
+}
+
+export function resolutionLimits(criteria: ProfileCriteria) {
+  const defaults = DEFAULT_PROFILE_CRITERIA.resolution;
+  const minWidth = criterionNumber(criteria, 'resolution', 'minWidth') ?? defaults.minWidth;
+  const minHeight = criterionNumber(criteria, 'resolution', 'minHeight') ?? defaults.minHeight;
+  const minDuration = criterionNumber(criteria, 'resolution', 'minDurationSec') ?? defaults.minDurationSec;
+  const maxDuration = criterionNumber(criteria, 'resolution', 'maxDurationSec') ?? defaults.maxDurationSec;
+  const portraitAware = criteria.resolution.portraitAware === true;
+  const dimensionsPass = (width: number, height: number) => portraitAware
+    ? Math.max(width, height) >= minWidth && Math.min(width, height) >= minHeight
+    : width >= minWidth && height >= minHeight;
+  return { minWidth, minHeight, minDuration, maxDuration, portraitAware, dimensionsPass,
+    durationPass: (seconds: number) => seconds >= minDuration && seconds <= maxDuration };
 }

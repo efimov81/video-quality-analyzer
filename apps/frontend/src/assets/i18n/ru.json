@@ -92,6 +92,7 @@
   "errors.localVideoMissing": "Локальный видеофайл отсутствует.",
   "errors.loudnessThresholds": "minIntegratedLufs должен быть меньше maxIntegratedLufs.",
   "errors.pixelThreshold": "black_screens.pixelThreshold должен быть в диапазоне от 0 до 1.",
+  "errors.preflightPolicy": "Для неполных метаданных выберите политику download или block.",
   "errors.profileInactive": "Выбранный профиль не активен.",
   "errors.profileName": "Укажите название профиля длиной до {{limit}} символов.",
   "errors.profileNotFound": "Профиль не найден.",

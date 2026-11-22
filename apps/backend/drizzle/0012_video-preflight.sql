@@ -1,0 +1,3 @@
+ALTER TABLE "jobs" ADD COLUMN "preflight_profile_version_id" uuid;--> statement-breakpoint
+ALTER TABLE "jobs" ADD COLUMN "preflight" jsonb;--> statement-breakpoint
+ALTER TABLE "jobs" ADD CONSTRAINT "jobs_preflight_profile_version_id_acceptance_profile_versions_id_fk" FOREIGN KEY ("preflight_profile_version_id") REFERENCES "public"."acceptance_profile_versions"("id") ON DELETE no action ON UPDATE no action;

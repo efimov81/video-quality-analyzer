@@ -23,6 +23,8 @@ export type { JobCreatorDto } from './models/job-creator-dto';
 export type { JobDetailsDto } from './models/job-details-dto';
 export type { JobResponseDto } from './models/job-response-dto';
 export type { LoginDto } from './models/login-dto';
+export type { PreflightCheckDto } from './models/preflight-check-dto';
+export type { PreflightResultDto } from './models/preflight-result-dto';
 export type { ProfileResponseDto } from './models/profile-response-dto';
 export type { ProfileSnapshotDto } from './models/profile-snapshot-dto';
 export type { ProfileVersionResponseDto } from './models/profile-version-response-dto';

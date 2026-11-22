@@ -7,16 +7,38 @@ import { mkdir } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 
-interface VideoInfo {
-  title?: string;
-  description?: string;
-}
+import { isRecord, type ProfileCriteria } from '../analysis/profile-criteria';
+import { evaluateMetadata, metadataFailure, shortsUrlRejection, type PreflightResult, type VideoInfo } from './video-preflight';
 
 @Injectable()
 export class VideoDownloaderService {
-  async download(sourceUrl: string): Promise<{ path: string; info: VideoInfo }> {
+  async preflight(sourceUrl: string, criteria: ProfileCriteria): Promise<{ result: PreflightResult; info?: VideoInfo }> {
+    const rejected = shortsUrlRejection(sourceUrl, criteria);
+    if (rejected) return { result: rejected };
+    try {
+      const url = await this.validateSource(sourceUrl);
+      const metadata: unknown = JSON.parse(await this.runYtDlp([
+        '--ignore-config', '--simulate', '--skip-download', '--dump-single-json', '--no-playlist',
+        '--no-warnings', '--socket-timeout', '15', '--extractor-retries', '1', '--retries', '1',
+        '--ignore-no-formats-error', '--', url,
+      ], 45_000));
+      if (!isRecord(metadata)) return { result: metadataFailure('Invalid metadata') };
+      const { title, description } = metadata;
+      return {
+        result: evaluateMetadata(metadata, criteria),
+        info: {
+          title: typeof title === 'string' ? title : undefined,
+          description: typeof description === 'string' ? description : undefined,
+        },
+      };
+    } catch (error) {
+      return { result: metadataFailure(error instanceof Error ? error.message : '') };
+    }
+  }
+
+  async download(sourceUrl: string, inspectedInfo?: VideoInfo): Promise<{ path: string; info: VideoInfo }> {
     const url = await this.validateSource(sourceUrl);
-    const info = await this.runYtDlp(['--dump-single-json', '--no-playlist', '--no-warnings', '--socket-timeout', '20', url])
+    const info = inspectedInfo ?? await this.runYtDlp(['--dump-single-json', '--no-playlist', '--no-warnings', '--socket-timeout', '20', url])
       .then((output) => JSON.parse(output) as VideoInfo)
       .catch((error: unknown) => {
         if (error instanceof BadRequestException) throw error;
@@ -77,12 +99,16 @@ export class VideoDownloaderService {
       !(a === 100 && b >= 64 && b <= 127) && !(a === 198 && (b === 18 || b === 19)) && a < 224;
   }
 
-  private runYtDlp(args: string[]): Promise<string> {
+  private runYtDlp(args: string[], timeoutMs = 30 * 60 * 1000): Promise<string> {
     return new Promise((resolveOutput, reject) => {
       const child = spawn(process.env.YTDLP_PATH ?? 'yt-dlp', args, { shell: false, windowsHide: true });
       let output = '';
       let errorOutput = '';
-      const timeout = setTimeout(() => child.kill('SIGKILL'), 30 * 60 * 1000);
+      let timedOut = false;
+      const timeout = setTimeout(() => {
+        timedOut = true;
+        child.kill('SIGKILL');
+      }, timeoutMs);
       child.stdout.setEncoding('utf8').on('data', (chunk: string) => { output += chunk; });
       child.stderr.setEncoding('utf8').on('data', (chunk: string) => { errorOutput = (errorOutput + chunk).slice(-4000); });
       child.on('error', (error) => {
@@ -91,7 +117,8 @@ export class VideoDownloaderService {
       });
       child.on('close', (code) => {
         clearTimeout(timeout);
-        if (code === 0) resolveOutput(output.trim());
+        if (timedOut) reject(new Error('yt-dlp timed out'));
+        else if (code === 0) resolveOutput(output.trim());
         else reject(new Error(errorOutput || `yt-dlp finished with code ${code}.`));
       });
     });

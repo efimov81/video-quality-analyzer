@@ -11,6 +11,7 @@ const { Pool } = require('pg');
 
 const { AnalysisController } = require('../dist/src/analysis/analysis.controller');
 const { AnalysisService } = require('../dist/src/analysis/analysis.service');
+const { evaluateMetadata } = require('../dist/src/downloader/video-preflight');
 const { ProfilesController } = require('../dist/src/analysis/profiles.controller');
 const { ProfilesService } = require('../dist/src/analysis/profiles.service');
 const { AuthController } = require('../dist/src/auth/auth.controller');
@@ -321,6 +322,64 @@ async function verifyTelegram(db, analysis) {
   assert.equal(deliveries.length, 2);
   const [notification] = await db.select().from(telegramJobNotifications).where(eq(telegramJobNotifications.videoId, video.id));
   assert.equal(notification.state, 'sent');
+
+  await profiles.update(base.id, { ...base, isDefault: true, criteria: {
+    ...base.criteria, resolution: { ...base.criteria.resolution, allowShorts: false, preflightInconclusive: 'block', maxDurationSec: 1200 },
+  } });
+  const probe = { duration: 1935, is_short: true, formats: [{ vcodec: 'avc1', width: 320, height: 240 }] };
+  let downloadCalls = 0;
+  const worker = new JobsService({ db }, {
+    preflight: async (_url, criteria) => ({ result: evaluateMetadata(probe, criteria) }),
+    download: async () => { downloadCalls++; return { path: __filename, info: {} }; },
+  }, profiles);
+  const origin = { botId: context.botId, chatId: '123456', telegramUserId: '123456', messageId: 11 };
+  const { job: rejected } = await worker.createFromTelegram('https://youtu.be/CCCCCCCCCCC', origin);
+  await db.update(jobs).set({ createdAt: new Date(1) }).where(eq(jobs.id, rejected.id));
+  await worker.processNext();
+  assert.equal(downloadCalls, 0);
+  const [stored] = await db.select().from(jobs).where(eq(jobs.id, rejected.id));
+  assert.equal(stored.status, 'FAILED');
+  assert.equal(stored.preflight.status, 'REJECTED');
+  assert.equal(stored.preflight.checks.filter(check => check.status === 'REJECTED').length, 3);
+  await analysis.dispatchPendingAutoAnalyses();
+  assert.equal((await db.select().from(analysisRuns).where(eq(analysisRuns.videoId, rejected.id))).length, 0);
+  deliveries.length = 0;
+  await restarted.deliverReady(context.botId, api, context.signal);
+  assert.equal(deliveries[0].messageId, 11);
+  assert.match(deliveries[0].text, /отклонено до скачивания/);
+  assert.match(deliveries[0].text, /32:15.*20:00/);
+  assert.match(deliveries[0].text, /Shorts запрещены/);
+
+  const { job: uncertain } = await worker.createFromTelegram('https://youtu.be/DDDDDDDDDDD', { ...origin, messageId: 12 });
+  await db.update(jobs).set({ createdAt: new Date(1) }).where(eq(jobs.id, uncertain.id));
+  Object.assign(probe, { duration: 90, is_short: undefined, formats: [{ vcodec: 'vp9', width: 1920, height: 1080 }] });
+  await worker.processNext();
+  assert.equal(downloadCalls, 0);
+  assert.equal((await db.select().from(jobs).where(eq(jobs.id, uncertain.id)))[0].preflight.status, 'INCONCLUSIVE');
+
+  const { job: passing } = await worker.createFromTelegram('https://youtu.be/EEEEEEEEEEE', { ...origin, messageId: 13 });
+  await db.update(jobs).set({ createdAt: new Date(1) }).where(eq(jobs.id, passing.id));
+  probe.is_short = false;
+  await worker.processNext();
+  assert.equal(downloadCalls, 1);
+  const [downloaded] = await db.select().from(jobs).where(eq(jobs.id, passing.id));
+  assert.equal(downloaded.status, 'DOWNLOADED');
+  assert.equal(downloaded.preflight.status, 'PASSED');
+
+  deliveries.length = 0;
+  await handler.handle({
+    from: { id: 123456 }, chat: { id: 123456, type: 'private' },
+    message_id: 14, text: 'https://www.youtube.com/shorts/FFFFFFFFFFF',
+  }, context);
+  assert.equal(deliveries.length, 0);
+  const [short] = await db.select().from(jobs)
+    .where(eq(jobs.sourceUrl, 'https://www.youtube.com/shorts/FFFFFFFFFFF'));
+  assert.equal(short.status, 'FAILED');
+  assert.equal(short.preflight.checks.find(check => check.check === 'shorts').reason, 'shortsForbidden');
+  assert.equal((await db.select().from(jobAutoAnalyses).where(eq(jobAutoAnalyses.videoId, short.id))).length, 0);
+  await restarted.deliverReady(context.botId, api, context.signal);
+  assert.match(deliveries.find(item => item.messageId === 14).text, /Shorts запрещены/);
+
 }
 
 test('auth sessions and ownership are enforced through the HTTP API', { skip: !connectionString }, async () => {

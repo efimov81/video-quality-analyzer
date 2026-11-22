@@ -53,11 +53,11 @@ export class ProfilesService {
       throw localizedException(BadRequestException, 'Активный профиль по умолчанию не настроен.', 'errors.defaultProfileMissing');
     }
     if (!profile.isActive) throw inactiveProfile();
-    const [version] = await tx.select({ id: acceptanceProfileVersions.id }).from(acceptanceProfileVersions)
+    const [version] = await tx.select({ id: acceptanceProfileVersions.id, criteria: acceptanceProfileVersions.criteria }).from(acceptanceProfileVersions)
       .where(and(eq(acceptanceProfileVersions.profileId, profile.id), eq(acceptanceProfileVersions.version, profile.version)))
       .limit(1);
     if (!version) throw profileNotFound();
-    return { id: version.id, code: profile.code, name: profile.name, version: profile.version };
+    return { id: version.id, code: profile.code, name: profile.name, version: profile.version, criteria: version.criteria };
   }
 
   create(input: SaveProfileInput) {

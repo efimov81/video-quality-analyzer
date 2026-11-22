@@ -1,8 +1,10 @@
 import { sql } from 'drizzle-orm';
 import type { UserRole } from '../auth/auth.models';
+import type { PreflightResult } from '../downloader/video-preflight';
 import type { MessageParams } from '../common/api-message';
 import { defaultJobSource, type JobSource } from '../jobs/job-source';
 import {
+  type AnyPgColumn,
   boolean,
   check,
   doublePrecision,
@@ -61,6 +63,8 @@ export const jobs = pgTable('jobs', {
   sourceUrl: text('source_url').notNull(),
   source: text('source').$type<JobSource>().notNull().default(defaultJobSource),
   createdByUserId: uuid('created_by_user_id').references(() => users.id),
+  preflightProfileVersionId: uuid('preflight_profile_version_id').references((): AnyPgColumn => acceptanceProfileVersions.id),
+  preflight: jsonb('preflight').$type<PreflightResult>(),
   title: text('title'),
   description: text('description'),
   localPath: text('local_path'),

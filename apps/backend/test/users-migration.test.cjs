@@ -52,11 +52,6 @@ test('migrates legacy jobs and results and enforces user associations', { skip: 
       const admin = { id: randomUUID(), role: 'admin' };
       const { rows: [unownedJob] } = await db.execute(`SELECT created_by_user_id FROM jobs WHERE id = '${oldJob}'`);
       assert.equal(unownedJob.created_by_user_id, null);
-      const report = await analysis.report(oldRun, admin);
-      assert.equal(report.run.requestedByUserId, null);
-      assert.equal(report.run.videoId, oldJob);
-      assert.equal(report.checks[0].details, 'legacy result');
-
       const owner = randomUUID();
       await db.execute(`INSERT INTO users (id, display_name) VALUES ('${owner}', 'Owner')`);
       await db.execute(`INSERT INTO external_identities (user_id, provider, external_user_id)
@@ -71,7 +66,11 @@ test('migrates legacy jobs and results and enforces user associations', { skip: 
       await rejectSql(`UPDATE jobs SET created_by_user_id = '${randomUUID()}' WHERE id = '${oldJob}'`, '23503');
       await rejectSql(`UPDATE analysis_runs SET requested_by_user_id = '${randomUUID()}' WHERE id = '${oldRun}'`, '23503');
 
-      await apply('0008_auth');
+      for (const { tag } of entries.slice(entries.findIndex(({ tag }) => tag === '0008_auth'))) await apply(tag);
+      const report = await analysis.report(oldRun, admin);
+      assert.equal(report.run.requestedByUserId, null);
+      assert.equal(report.run.videoId, oldJob);
+      assert.equal(report.video.preflight, null);
       assert.equal((await jobs.get(oldJob, admin)).createdByUserId, null);
       assert.equal((await jobs.get(oldJob, admin)).createdBy, null);
       assert.equal((await analysis.report(oldRun, admin)).checks[0].details, 'legacy result');

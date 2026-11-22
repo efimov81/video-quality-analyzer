@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { AnalyzerInput, CheckResultInput, VideoAnalyzer } from '../analysis.models';
-import { CheckType, criterionEnabled, criterionNumber } from '../profile-criteria';
+import { CheckType, criterionEnabled, criterionNumber, resolutionLimits } from '../profile-criteria';
 
 const VERSION = 'ffprobe-metadata/1.0';
 
@@ -10,7 +10,7 @@ export class MetadataAnalyzer implements VideoAnalyzer {
 
   async analyze(input: AnalyzerInput): Promise<CheckResultInput[]> {
     if (!input.media) throw new Error('FFprobe не предоставил метаданные видео.');
-    const rule = input.criteria.resolution;
+    const limits = resolutionLimits(input.criteria);
     const streams = input.media.streams.filter((stream) => stream.codec_type === 'video' && stream.disposition?.attached_pic !== 1);
     const video = streams[0];
     if (!video) {
@@ -19,21 +19,17 @@ export class MetadataAnalyzer implements VideoAnalyzer {
 
     const width = video.width ?? 0;
     const height = video.height ?? 0;
-    const portraitAware = rule.portraitAware === true;
+    const { portraitAware, minWidth, minHeight, minDuration, maxDuration } = limits;
     const measuredWidth = portraitAware ? Math.max(width, height) : width;
     const measuredHeight = portraitAware ? Math.min(width, height) : height;
     const duration = this.toNumber(video.duration ?? input.media.format.duration);
     const videoBitrate = this.toNumber(video.bit_rate);
     const aspectRatio = width && height ? width / height : null;
-    const minWidth = criterionNumber(input.criteria, 'resolution', 'minWidth') ?? 1920;
-    const minHeight = criterionNumber(input.criteria, 'resolution', 'minHeight') ?? 1080;
-    const minDuration = criterionNumber(input.criteria, 'resolution', 'minDurationSec') ?? 1;
-    const maxDuration = criterionNumber(input.criteria, 'resolution', 'maxDurationSec') ?? 21600;
     const minBitrate = criterionNumber(input.criteria, 'resolution', 'minVideoBitrateBps');
     const minAspectRatio = criterionNumber(input.criteria, 'resolution', 'minAspectRatio') ?? 0.3;
     const maxAspectRatio = criterionNumber(input.criteria, 'resolution', 'maxAspectRatio') ?? 2.4;
-    const dimensionsPass = measuredWidth >= minWidth && measuredHeight >= minHeight;
-    const durationPass = duration !== null && duration >= minDuration && duration <= maxDuration;
+    const dimensionsPass = limits.dimensionsPass(width, height);
+    const durationPass = duration !== null && limits.durationPass(duration);
     const aspectRatioPass = aspectRatio !== null && aspectRatio >= minAspectRatio && aspectRatio <= maxAspectRatio;
     const bitrateKnown = videoBitrate !== null;
     const bitratePass = minBitrate === null || (bitrateKnown && videoBitrate! >= minBitrate);
